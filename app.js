@@ -1,4 +1,5 @@
 
+const APP_VERSION = "1.2";
 const HEADERS = ["Kürzel", "Datum", "Uhrzeit", "Aktion", "Reinigungsart", "Wasserlinie", "Wassertemperatur", "Außentemperatur", "Innendach", "fCl", "fCl_Status", "CYA", "TA", "pH", "Wasseroptik", "Dach_Offen_h", "Badebetrieb_h", "Chlorschwimmer_h", "Pumpe_h", "CHC_g", "Notiz"];
 const SEED_DATA = [];
 const DB_NAME = "PoolLogDB";
@@ -369,6 +370,7 @@ $("importJsonInput").addEventListener("change",async e=>{
 
 (async()=>{
   db=await openDB();
+  $("appVersion").textContent="Version "+APP_VERSION;
   await seedIfEmpty();
   setDefaults();
   await renderLists();

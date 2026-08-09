@@ -110,3 +110,9 @@ input:focus,select:focus,textarea:focus{border-color:var(--brand);box-shadow:0 0
   color:#0b5d7a;font-size:1.55rem;font-weight:800;line-height:1;touch-action:manipulation
 }
 .step-btn:active{background:#d9e8ee}
+
+.app-info{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:4px 6px 18px;color:#687982;font-size:.82rem
+}
+.app-info strong{color:#40525b}

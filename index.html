@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0b5d7a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>PoolLog</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <div class="eyebrow">Pooldaten</div>
+      <h1>Neue Aktion</h1>
+    </div>
+    <button id="menuBtn" class="icon-btn" type="button" aria-label="Menü">☰</button>
+  </header>
+
+  <main>
+    <section id="entryView" class="view active">
+      <form id="entryForm" novalidate>
+        <div class="card compact">
+          <label class="field">
+            <span>Aktion</span>
+            <select id="Aktion" name="Aktion">
+              <option>Messung</option>
+              <option>Chlorung</option>
+              <option>Wasserfüllung</option>
+              <option>Rückspülung</option>
+              <option>Reinigung</option>
+            </select>
+          </label>
+          <div class="two-col">
+            <label class="field">
+              <span>Datum</span>
+              <input id="Datum" name="Datum" type="date" required>
+            </label>
+            <label class="field">
+              <span>Uhrzeit</span>
+              <input id="Uhrzeit" name="Uhrzeit" type="time">
+            </label>
+          </div>
+          <label class="field">
+            <span>Kürzel</span>
+            <select id="Kürzel" name="Kürzel">
+              <option>sam</option>
+            </select>
+          </label>
+        </div>
+
+        <div id="cleaningBlock" class="card action-block hidden">
+          <h2>Reinigung</h2>
+          <label class="field">
+            <span>Reinigungsart</span>
+            <select id="Reinigungsart" name="Reinigungsart">
+              <option value=""></option>
+              <option>Roboter</option>
+              <option>Skimmersocke</option>
+            </select>
+          </label>
+        </div>
+
+        <div id="chlorBlock" class="card action-block hidden">
+          <h2>Chlorung</h2>
+          <label class="field focus-field">
+            <span>CHC in Gramm</span>
+            <input id="CHC_g" name="CHC_g" type="number" min="0" step="0.1" inputmode="decimal" placeholder="z. B. 25">
+          </label>
+        </div>
+
+        <div id="measurementBlock" class="card action-block">
+          <h2>Messwerte</h2>
+          <label class="field">
+            <span>Wasserlinie <small>mm</small></span>
+            <input id="Wasserlinie" name="Wasserlinie" type="number" step="0.1" inputmode="decimal" placeholder="z. B. -3">
+          </label>
+          <div class="two-col">
+            <label class="field">
+              <span>Wasser <small>°C</small></span>
+              <input id="Wassertemperatur" name="Wassertemperatur" type="number" step="0.1" inputmode="decimal" placeholder="27,9">
+            </label>
+            <label class="field">
+              <span>Außen <small>°C</small></span>
+              <input id="Außentemperatur" name="Außentemperatur" type="number" step="0.1" inputmode="decimal" placeholder="12">
+            </label>
+          </div>
+
+          <label class="field">
+            <span>Innendach</span>
+            <select id="Innendach" name="Innendach">
+              <option value=""></option>
+              <option>trocken</option>
+              <option>wenig</option>
+              <option>mittel</option>
+              <option>stark</option>
+            </select>
+          </label>
+
+          <div class="two-col">
+            <label class="field">
+              <span>fCl <small>mg/l</small></span>
+              <input id="fCl" name="fCl" type="number" min="0" step="0.01" inputmode="decimal" placeholder="1,78">
+            </label>
+            <label class="field">
+              <span>fCl Status</span>
+              <select id="fCl_Status" name="fCl_Status">
+                <option value=""></option>
+                <option>OR</option>
+                <option>UR</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="three-col">
+            <label class="field">
+              <span>CYA</span>
+              <input id="CYA" name="CYA" type="number" min="0" step="0.1" inputmode="decimal">
+            </label>
+            <label class="field">
+              <span>TA</span>
+              <input id="TA" name="TA" type="number" min="0" step="0.1" inputmode="decimal">
+            </label>
+            <label class="field">
+              <span>pH</span>
+              <input id="pH" name="pH" type="number" min="0" max="14" step="0.01" inputmode="decimal">
+            </label>
+          </div>
+
+          <label class="field">
+            <span>Wasseroptik</span>
+            <select id="Wasseroptik" name="Wasseroptik">
+              <option value=""></option>
+              <option>Sehr gut</option>
+              <option>gut</option>
+              <option>ok</option>
+              <option>grün</option>
+              <option>braun</option>
+              <option>milchig</option>
+            </select>
+          </label>
+
+          <details class="intervals">
+            <summary>Seit vorheriger Messung</summary>
+            <p class="hint">0 = ausdrücklich 0 Stunden. Leer = unbekannt.</p>
+            <div class="two-col">
+              <label class="field">
+                <span>Dach offen <small>h</small></span>
+                <input id="Dach_Offen_h" name="Dach_Offen_h" type="number" min="0" step="0.1" inputmode="decimal">
+              </label>
+              <label class="field">
+                <span>Badebetrieb <small>h</small></span>
+                <input id="Badebetrieb_h" name="Badebetrieb_h" type="number" min="0" step="0.1" inputmode="decimal">
+              </label>
+              <label class="field">
+                <span>Chlorschwimmer <small>h</small></span>
+                <input id="Chlorschwimmer_h" name="Chlorschwimmer_h" type="number" min="0" step="0.1" inputmode="decimal">
+              </label>
+              <label class="field">
+                <span>Pumpe <small>h</small></span>
+                <input id="Pumpe_h" name="Pumpe_h" type="number" min="0" step="0.1" inputmode="decimal">
+              </label>
+            </div>
+          </details>
+        </div>
+
+        <div id="otherBlock" class="card action-block hidden">
+          <h2>Zusatzdaten</h2>
+          <label class="field">
+            <span>Wasserlinie <small>mm</small></span>
+            <input id="WasserlinieOther" type="number" step="0.1" inputmode="decimal">
+          </label>
+        </div>
+
+        <div class="card">
+          <label class="field">
+            <span>Notiz</span>
+            <textarea id="Notiz" name="Notiz" rows="3" placeholder="Nur Besonderheiten, die nicht strukturiert erfasst werden können"></textarea>
+          </label>
+        </div>
+
+        <div class="sticky-actions">
+          <button id="cancelEditBtn" class="secondary hidden" type="button">Abbrechen</button>
+          <button id="saveBtn" class="primary" type="submit">Speichern</button>
+        </div>
+      </form>
+
+      <section class="recent">
+        <div class="section-title">
+          <h2>Letzte Einträge</h2>
+          <button id="showDataBtn" class="text-btn" type="button">Alle anzeigen</button>
+        </div>
+        <div id="recentList" class="record-list"></div>
+      </section>
+    </section>
+
+    <section id="dataView" class="view">
+      <div class="section-title">
+        <div>
+          <div class="eyebrow">Rohdaten</div>
+          <h1>Daten</h1>
+        </div>
+        <button id="backBtn" class="text-btn" type="button">Zur Eingabe</button>
+      </div>
+      <div class="toolbar">
+        <input id="searchInput" type="search" placeholder="Suchen …">
+      </div>
+      <div id="allList" class="record-list"></div>
+    </section>
+
+    <section id="menuView" class="view">
+      <div class="section-title">
+        <div>
+          <div class="eyebrow">PoolLog</div>
+          <h1>Daten & Sicherung</h1>
+        </div>
+        <button id="closeMenuBtn" class="text-btn" type="button">Schließen</button>
+      </div>
+
+      <div class="card menu-card">
+        <button id="exportCsvBtn" class="menu-action" type="button">
+          <strong>CSV exportieren</strong>
+          <span>Alle Rohdaten, 21 Spalten, Semikolon-getrennt</span>
+        </button>
+        <button id="exportJsonBtn" class="menu-action" type="button">
+          <strong>Backup exportieren</strong>
+          <span>Vollständige lokale Sicherung als JSON</span>
+        </button>
+        <label class="menu-action file-action">
+          <strong>CSV importieren</strong>
+          <span>Zusätzliche oder bestehende Pooldaten einlesen</span>
+          <input id="importCsvInput" type="file" accept=".csv,text/csv">
+        </label>
+        <label class="menu-action file-action">
+          <strong>Backup wiederherstellen</strong>
+          <span>JSON-Datei einlesen</span>
+          <input id="importJsonInput" type="file" accept=".json,application/json">
+        </label>
+      </div>
+
+      <div class="card">
+        <h2>Bestand</h2>
+        <p><strong id="recordCount">0</strong> Ereignisse lokal gespeichert.</p>
+        <p class="hint">Die Daten bleiben auf diesem Gerät im Browser gespeichert. Für Datensicherheit regelmäßig CSV oder Backup exportieren.</p>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

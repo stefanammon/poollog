@@ -1,5 +1,5 @@
 
-const APP_VERSION = "1.2";
+const APP_VERSION = "1.3";
 const HEADERS = ["Kürzel", "Datum", "Uhrzeit", "Aktion", "Reinigungsart", "Wasserlinie", "Wassertemperatur", "Außentemperatur", "Innendach", "fCl", "fCl_Status", "CYA", "TA", "pH", "Wasseroptik", "Dach_Offen_h", "Badebetrieb_h", "Chlorschwimmer_h", "Pumpe_h", "CHC_g", "Notiz"];
 const SEED_DATA = [];
 const DB_NAME = "PoolLogDB";
@@ -19,6 +19,46 @@ function localDateString(d=new Date()){
 }
 function localTimeString(d=new Date()){
   return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+}
+
+function parseLocalDateTime(dateStr,timeStr){
+  if(!dateStr) return null;
+  const parts=dateStr.split("-").map(Number);
+  const time=(timeStr || "00:00").split(":").map(Number);
+  if(parts.length!==3 || parts.some(Number.isNaN)) return null;
+  const d=new Date(parts[0],parts[1]-1,parts[2],time[0]||0,time[1]||0,0,0);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function formatHours(hours){
+  if(!Number.isFinite(hours)) return "–";
+  if(hours < 0) return "aktuelle Zeit liegt davor";
+  if(hours < 24) return `${hours.toLocaleString("de-DE",{minimumFractionDigits:1,maximumFractionDigits:1})} h`;
+  const days=Math.floor(hours/24);
+  const rem=hours-(days*24);
+  return `${days} T ${rem.toLocaleString("de-DE",{minimumFractionDigits:1,maximumFractionDigits:1})} h`;
+}
+
+async function updateElapsedSinceMeasurement(){
+  const target=$("elapsedSinceMeasurement");
+  if(!target || !db) return;
+  const current=parseLocalDateTime(valueOf("Datum"),valueOf("Uhrzeit"));
+  if(!current){ target.textContent="–"; return; }
+
+  let rows=await getAllRecords();
+  const candidates=rows
+    .filter(r=>r.Aktion==="Messung" && r.Datum)
+    .map(r=>({r,dt:parseLocalDateTime(r.Datum,r.Uhrzeit)}))
+    .filter(x=>x.dt && x.dt.getTime()<=current.getTime() && x.r._id!==editingId)
+    .sort((a,b)=>b.dt-a.dt);
+
+  if(!candidates.length){
+    target.textContent="keine frühere Messung";
+    return;
+  }
+
+  const hours=(current-candidates[0].dt)/3600000;
+  target.textContent=formatHours(hours);
 }
 
 function openDB(){
@@ -95,6 +135,7 @@ function setDefaults(){
   $("saveBtn").textContent="Speichern";
   $("cancelEditBtn").classList.add("hidden");
   updateActionUI();
+  updateElapsedSinceMeasurement();
 }
 
 function updateActionUI(){
@@ -227,6 +268,7 @@ async function editRecord(id){
   };
   for(const [k,id2] of Object.entries(mapping)) if($(id2)) $(id2).value=r[k]??"";
   if(r.Aktion==="Wasserfüllung") $("WasserlinieOther").value=r.Wasserlinie??"";
+  await updateElapsedSinceMeasurement();
   window.scrollTo({top:0,behavior:"smooth"});
 }
 
@@ -252,6 +294,25 @@ async function exportCSV(){
   download("\ufeff"+lines.join("\r\n"),`Pool_Masterdaten_${localDateString()}.csv`,"text/csv;charset=utf-8");
 }
 
+async function exportRangeCSV(){
+  const from=valueOf("exportFrom");
+  const to=valueOf("exportTo");
+  if(!from || !to){ toast("Bitte Von- und Bis-Datum wählen."); return; }
+  if(from>to){ toast("Von-Datum liegt nach Bis-Datum."); return; }
+
+  let rows=await getAllRecords();
+  rows=rows.filter(r=>r.Datum && r.Datum>=from && r.Datum<=to);
+  rows.sort((a,b)=>a._id-b._id);
+
+  $("rangeExportInfo").textContent=`${rows.length} Ereignis${rows.length===1?"":"se"} im gewählten Zeitraum`;
+  if(!rows.length){ toast("Keine Ereignisse in diesem Zeitraum."); return; }
+
+  const lines=[HEADERS.map(csvEscape).join(";")];
+  for(const r of rows) lines.push(HEADERS.map(h=>csvEscape(r[h])).join(";"));
+  const suffix=from===to ? from : `${from}_bis_${to}`;
+  download("\\ufeff"+lines.join("\\r\\n"),`Pool_Masterdaten_${suffix}.csv`,"text/csv;charset=utf-8");
+}
+
 async function exportJSON(){
   const rows=await getAllRecords();
   rows.sort((a,b)=>a._id-b._id);
@@ -264,6 +325,17 @@ function download(content,filename,type){
   const url=URL.createObjectURL(blob);
   const a=document.createElement("a"); a.href=url; a.download=filename; a.click();
   setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+
+async function updateRangeExportInfo(){
+  const info=$("rangeExportInfo");
+  if(!info || !db) return;
+  const from=valueOf("exportFrom"), to=valueOf("exportTo");
+  if(!from || !to){ info.textContent=""; return; }
+  if(from>to){ info.textContent="Von-Datum liegt nach Bis-Datum."; return; }
+  const rows=await getAllRecords();
+  const n=rows.filter(r=>r.Datum && r.Datum>=from && r.Datum<=to).length;
+  info.textContent=`${n} Ereignis${n===1?"":"se"} im gewählten Zeitraum`;
 }
 
 function parseCSV(text,delimiter=";"){
@@ -344,6 +416,8 @@ form.addEventListener("submit",async e=>{
 });
 
 $("Aktion").addEventListener("change",updateActionUI);
+$("Datum").addEventListener("change",updateElapsedSinceMeasurement);
+$("Uhrzeit").addEventListener("change",updateElapsedSinceMeasurement);
 $("fCl").addEventListener("input",()=>{ if(valueOf("fCl")!=="") $("fCl_Status").value=""; });
 $("fCl_Status").addEventListener("change",()=>{ if(valueOf("fCl_Status")!=="") $("fCl").value=""; });
 $("cancelEditBtn").addEventListener("click",setDefaults);
@@ -353,6 +427,9 @@ $("menuBtn").addEventListener("click",()=>switchView("menuView"));
 $("closeMenuBtn").addEventListener("click",()=>switchView("entryView"));
 $("searchInput").addEventListener("input",()=>renderAllList());
 $("exportCsvBtn").addEventListener("click",exportCSV);
+$("exportRangeCsvBtn").addEventListener("click",exportRangeCSV);
+$("exportFrom").addEventListener("change",updateRangeExportInfo);
+$("exportTo").addEventListener("change",updateRangeExportInfo);
 $("exportJsonBtn").addEventListener("click",exportJSON);
 
 $("importCsvInput").addEventListener("change",async e=>{
@@ -373,7 +450,11 @@ $("importJsonInput").addEventListener("change",async e=>{
   $("appVersion").textContent="Version "+APP_VERSION;
   await seedIfEmpty();
   setDefaults();
+  $("exportFrom").value=localDateString();
+  $("exportTo").value=localDateString();
   await renderLists();
+  await updateElapsedSinceMeasurement();
+  await updateRangeExportInfo();
   if("serviceWorker" in navigator && location.protocol!=="file:"){
     navigator.serviceWorker.register("service-worker.js").catch(()=>{});
   }

@@ -1,5 +1,5 @@
 
-const APP_VERSION = "1.3";
+const APP_VERSION = "1.4";
 const HEADERS = ["Kürzel", "Datum", "Uhrzeit", "Aktion", "Reinigungsart", "Wasserlinie", "Wassertemperatur", "Außentemperatur", "Innendach", "fCl", "fCl_Status", "CYA", "TA", "pH", "Wasseroptik", "Dach_Offen_h", "Badebetrieb_h", "Chlorschwimmer_h", "Pumpe_h", "CHC_g", "Notiz"];
 const SEED_DATA = [];
 const DB_NAME = "PoolLogDB";
@@ -23,11 +23,26 @@ function localTimeString(d=new Date()){
 
 function parseLocalDateTime(dateStr,timeStr){
   if(!dateStr) return null;
-  const parts=dateStr.split("-").map(Number);
-  const time=(timeStr || "00:00").split(":").map(Number);
-  if(parts.length!==3 || parts.some(Number.isNaN)) return null;
-  const d=new Date(parts[0],parts[1]-1,parts[2],time[0]||0,time[1]||0,0,0);
-  return Number.isNaN(d.getTime()) ? null : d;
+  const rawDate=String(dateStr).trim();
+  let y,m,d;
+
+  if(/^\d{4}-\d{2}-\d{2}$/.test(rawDate)){
+    [y,m,d]=rawDate.split("-").map(Number);
+  }else if(/^\d{1,2}\.\d{1,2}\.\d{4}$/.test(rawDate)){
+    [d,m,y]=rawDate.split(".").map(Number);
+  }else{
+    return null;
+  }
+
+  const rawTime=String(timeStr || "00:00").trim();
+  const tm=rawTime.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  if(!tm) return null;
+  const hh=Number(tm[1]), mm=Number(tm[2]), ss=Number(tm[3]||0);
+  if(hh>23 || mm>59 || ss>59) return null;
+
+  const dt=new Date(y,m-1,d,hh,mm,ss,0);
+  if(dt.getFullYear()!==y || dt.getMonth()!==m-1 || dt.getDate()!==d) return null;
+  return dt;
 }
 
 function formatHours(hours){
@@ -42,23 +57,36 @@ function formatHours(hours){
 async function updateElapsedSinceMeasurement(){
   const target=$("elapsedSinceMeasurement");
   if(!target || !db) return;
+
   const current=parseLocalDateTime(valueOf("Datum"),valueOf("Uhrzeit"));
-  if(!current){ target.textContent="–"; return; }
-
-  let rows=await getAllRecords();
-  const candidates=rows
-    .filter(r=>r.Aktion==="Messung" && r.Datum)
-    .map(r=>({r,dt:parseLocalDateTime(r.Datum,r.Uhrzeit)}))
-    .filter(x=>x.dt && x.dt.getTime()<=current.getTime() && x.r._id!==editingId)
-    .sort((a,b)=>b.dt-a.dt);
-
-  if(!candidates.length){
-    target.textContent="keine frühere Messung";
+  if(!current){
+    target.textContent="–";
+    target.title="";
     return;
   }
 
-  const hours=(current-candidates[0].dt)/3600000;
+  const rows=await getAllRecords();
+  const candidates=rows
+    .filter(r=>String(r.Aktion ?? "").trim().toLocaleLowerCase("de-DE")==="messung")
+    .map(r=>{
+      const date=String(r.Datum ?? "").trim();
+      const time=String(r.Uhrzeit ?? "").trim();
+      return {r,dt:parseLocalDateTime(date,time)};
+    })
+    .filter(x=>x.dt && x.dt.getTime() < current.getTime() && x.r._id!==editingId)
+    .sort((a,b)=>b.dt.getTime()-a.dt.getTime());
+
+  if(!candidates.length){
+    target.textContent="keine frühere Messung";
+    target.title="";
+    return;
+  }
+
+  const last=candidates[0];
+  const minutes=Math.round((current.getTime()-last.dt.getTime())/60000);
+  const hours=minutes/60;
   target.textContent=formatHours(hours);
+  target.title=`Letzte Messung: ${last.r.Datum} ${last.r.Uhrzeit || "00:00"}`;
 }
 
 function openDB(){

@@ -102,3 +102,11 @@ input:focus,select:focus,textarea:focus{border-color:var(--brand);box-shadow:0 0
   .three-col input{padding-left:8px;padding-right:8px}
   .field>span{font-size:.88rem}
 }
+
+.signed-input{display:grid;grid-template-columns:52px 1fr 52px;gap:8px;align-items:center}
+.signed-input input{text-align:center;font-size:1.12rem;font-weight:750}
+.step-btn{
+  min-height:48px;border:1px solid #b9c7ce;border-radius:11px;background:#edf3f5;
+  color:#0b5d7a;font-size:1.55rem;font-weight:800;line-height:1;touch-action:manipulation
+}
+.step-btn:active{background:#d9e8ee}

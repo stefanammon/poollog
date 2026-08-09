@@ -109,6 +109,11 @@ function valueOf(id){
   if(!el) return "";
   return (el.value ?? "").trim();
 }
+function numericValueOf(id){
+  const raw=valueOf(id);
+  if(raw==="") return "";
+  return raw.replaceAll("−","-").replace(",",".");
+}
 function buildRecord(){
   const action=valueOf("Aktion");
   const rec={};
@@ -120,13 +125,14 @@ function buildRecord(){
   rec["Notiz"]=valueOf("Notiz");
 
   if(action==="Messung"){
-    for(const h of ["Wasserlinie","Wassertemperatur","Außentemperatur","Innendach","fCl","fCl_Status","CYA","TA","pH","Wasseroptik","Dach_Offen_h","Badebetrieb_h","Chlorschwimmer_h","Pumpe_h"]) rec[h]=valueOf(h);
+    for(const h of ["Innendach","fCl_Status","Wasseroptik"]) rec[h]=valueOf(h);
+    for(const h of ["Wasserlinie","Wassertemperatur","Außentemperatur","fCl","CYA","TA","pH","Dach_Offen_h","Badebetrieb_h","Chlorschwimmer_h","Pumpe_h"]) rec[h]=numericValueOf(h);
   } else if(action==="Chlorung"){
-    rec["CHC_g"]=valueOf("CHC_g");
+    rec["CHC_g"]=numericValueOf("CHC_g");
   } else if(action==="Reinigung"){
     rec["Reinigungsart"]=valueOf("Reinigungsart");
   } else if(action==="Wasserfüllung"){
-    rec["Wasserlinie"]=valueOf("WasserlinieOther");
+    rec["Wasserlinie"]=numericValueOf("WasserlinieOther");
   }
   if(editingId!==null) rec._id=editingId;
   return rec;
@@ -305,6 +311,24 @@ async function restoreJSON(file){
     const r={}; HEADERS.forEach(h=>r[h]=old[h]??""); store.add(r);
   }
   await new Promise((resolve,reject)=>{transaction.oncomplete=resolve;transaction.onerror=()=>reject(transaction.error)});
+}
+
+
+document.querySelectorAll(".step-btn").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    const el=$(btn.dataset.target);
+    const step=Number(btn.dataset.step);
+    const raw=(el.value||"").replaceAll("−","-").replace(",",".").trim();
+    const current=raw==="" ? 0 : Number(raw);
+    el.value=String((Number.isFinite(current)?current:0)+step);
+    el.dispatchEvent(new Event("input",{bubbles:true}));
+  });
+});
+
+for(const id of ["Wasserlinie","WasserlinieOther","Wassertemperatur","Außentemperatur"]){
+  $(id).addEventListener("input",e=>{
+    e.target.value=e.target.value.replaceAll("−","-");
+  });
 }
 
 form.addEventListener("submit",async e=>{

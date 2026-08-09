@@ -76,16 +76,20 @@
           <h2>Messwerte</h2>
           <label class="field">
             <span>Wasserlinie <small>mm</small></span>
-            <input id="Wasserlinie" name="Wasserlinie" type="number" step="0.1" inputmode="decimal" placeholder="z. B. -3">
+            <div class="signed-input">
+              <button class="step-btn minus" type="button" data-target="Wasserlinie" data-step="-1" aria-label="Wasserlinie minus 1">−</button>
+              <input id="Wasserlinie" name="Wasserlinie" type="text" inputmode="decimal" placeholder="z. B. -3" autocomplete="off">
+              <button class="step-btn plus" type="button" data-target="Wasserlinie" data-step="1" aria-label="Wasserlinie plus 1">+</button>
+            </div>
           </label>
           <div class="two-col">
             <label class="field">
               <span>Wasser <small>°C</small></span>
-              <input id="Wassertemperatur" name="Wassertemperatur" type="number" step="0.1" inputmode="decimal" placeholder="27,9">
+              <input id="Wassertemperatur" name="Wassertemperatur" type="text" inputmode="decimal" placeholder="27,9" autocomplete="off">
             </label>
             <label class="field">
               <span>Außen <small>°C</small></span>
-              <input id="Außentemperatur" name="Außentemperatur" type="number" step="0.1" inputmode="decimal" placeholder="12">
+              <input id="Außentemperatur" name="Außentemperatur" type="text" inputmode="decimal" placeholder="12" autocomplete="off">
             </label>
           </div>
 
@@ -171,7 +175,11 @@
           <h2>Zusatzdaten</h2>
           <label class="field">
             <span>Wasserlinie <small>mm</small></span>
-            <input id="WasserlinieOther" type="number" step="0.1" inputmode="decimal">
+            <div class="signed-input">
+              <button class="step-btn minus" type="button" data-target="WasserlinieOther" data-step="-1" aria-label="Wasserlinie minus 1">−</button>
+              <input id="WasserlinieOther" type="text" inputmode="decimal" placeholder="z. B. -3" autocomplete="off">
+              <button class="step-btn plus" type="button" data-target="WasserlinieOther" data-step="1" aria-label="Wasserlinie plus 1">+</button>
+            </div>
           </label>
         </div>
 

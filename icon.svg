@@ -1,6 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-<rect width="512" height="512" rx="108" fill="#0b5d7a"/>
-<path d="M80 210c54-45 108-45 162 0s108 45 190 0v70c-82 45-136 45-190 0s-108-45-162 0z" fill="#dff5ff"/>
-<path d="M80 314c54-45 108-45 162 0s108 45 190 0v58c-82 45-136 45-190 0s-108-45-162 0z" fill="#8bd7f0"/>
-<circle cx="256" cy="145" r="52" fill="#fff7b2"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="FreePoolLog4U">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#07366f"/><stop offset="1" stop-color="#18a9e4"/></linearGradient></defs>
+  <rect width="512" height="512" rx="112" fill="url(#g)"/>
+  <circle cx="256" cy="242" r="150" fill="none" stroke="#fff" stroke-width="30"/>
+  <text x="256" y="278" text-anchor="middle" fill="#fff" font-family="Arial,Helvetica,sans-serif" font-size="112" font-weight="800" letter-spacing="-12">AM</text>
+  <path d="M75 406c68-40 124-40 181 0 57 40 113 40 181 0" fill="none" stroke="#fff" stroke-width="22" stroke-linecap="round" opacity=".9"/>
 </svg>

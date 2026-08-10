@@ -1,6 +1,6 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
-const APP_VERSION = "1.0.0-beta.3";
+const APP_VERSION = globalThis.FPL_VERSION || "Entwicklung";
 const APP_LABEL = "FreePoolLog4U";
 const SUPABASE_URL = "https://yxuobeqkxewznneqcpbz.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_77QwPv7tJrTenyrHGZHjWg_2UTuzVgk";
@@ -17,6 +17,66 @@ let lastAutoRefreshAt = 0;
 
 const $ = id => document.getElementById(id);
 const form = $("entryForm");
+
+
+const LEGAL_DOCS = {
+  privacy:{title:"Datenschutz",template:"privacyTemplate"},
+  imprint:{title:"Impressum",template:"imprintTemplate"},
+  beta:{title:"Beta-Hinweise",template:"betaTemplate"}
+};
+
+function openLegalModal(kind){
+  const doc=LEGAL_DOCS[kind];
+  if(!doc) return;
+  const template=$(doc.template);
+  const content=$("legalModalContent");
+  if(!template || !content) return;
+  $("legalModalTitle").textContent=doc.title;
+  content.replaceChildren(template.content.cloneNode(true));
+  $("legalModal").classList.remove("hidden");
+  document.body.classList.add("modal-open");
+  setTimeout(()=>$("closeLegalModalBtn")?.focus(),0);
+}
+
+function closeLegalModal(){
+  $("legalModal")?.classList.add("hidden");
+  document.body.classList.remove("modal-open");
+}
+
+function betaWelcomeStorageKey(){
+  return currentUser?.id ? `fpl-beta-welcome-${APP_VERSION}-${currentUser.id}` : "";
+}
+
+function maybeShowBetaWelcome(){
+  const key=betaWelcomeStorageKey();
+  if(!key || localStorage.getItem(key)==="1") return;
+  $("betaWelcomeModal")?.classList.remove("hidden");
+  document.body.classList.add("modal-open");
+  setTimeout(()=>$("betaWelcomeOkBtn")?.focus(),0);
+}
+
+function dismissBetaWelcome(){
+  const key=betaWelcomeStorageKey();
+  if(key) localStorage.setItem(key,"1");
+  $("betaWelcomeModal")?.classList.add("hidden");
+  document.body.classList.remove("modal-open");
+}
+
+function sendBetaFeedback(){
+  const subject=`FreePoolLog4U Mini ${APP_VERSION} – Beta-Feedback`;
+  const body=[
+    "Hallo,",
+    "",
+    "mein Feedback zu FreePoolLog4U Mini:",
+    "",
+    "Was ist passiert / was sollte verbessert werden?",
+    "",
+    "",
+    `Version: ${APP_VERSION}`,
+    `Browser/Gerät: ${navigator.userAgent}`
+  ].join("\n");
+  location.href=`mailto:freepoollog4u@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
 
 function localDateString(d=new Date()){
   const y=d.getFullYear();
@@ -859,6 +919,12 @@ $("exportRangeCsvBtn").addEventListener("click",exportRangeCSV);
 $("exportFrom").addEventListener("change",updateRangeExportInfo);
 $("exportTo").addEventListener("change",updateRangeExportInfo);
 $("exportJsonBtn").addEventListener("click",exportJSON);
+$("feedbackBtn").addEventListener("click",sendBetaFeedback);
+document.querySelectorAll("[data-legal]").forEach(btn=>btn.addEventListener("click",()=>openLegalModal(btn.dataset.legal)));
+$("closeLegalModalBtn").addEventListener("click",closeLegalModal);
+$("legalModal").addEventListener("click",e=>{ if(e.target===$("legalModal")) closeLegalModal(); });
+$("betaWelcomeOkBtn").addEventListener("click",dismissBetaWelcome);
+document.addEventListener("keydown",e=>{ if(e.key==="Escape" && !$("legalModal").classList.contains("hidden")) closeLegalModal(); });
 
 
 function showError(err){
@@ -935,6 +1001,7 @@ async function loadCurrentPool(){
 
 async function startAuthenticatedApp(){
   const ok=await loadCurrentPool();
+  maybeShowBetaWelcome();
   if(!ok) return;
   $("menuBtn").classList.remove("hidden");
   $("logoutBtn").classList.remove("hidden");

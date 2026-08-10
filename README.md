@@ -1,6 +1,8 @@
-# FreePoolLog4U Mini 1.0 Beta 1
+# FreePoolLog4U Mini
 
-Pilotversion für eine kleine externe Testergruppe.
+**Aktuelle Version: 1.0.0-beta.4**
+
+Pilotversion für einen geschlossenen externen Betatest mit bis zu 20 Personen.
 
 ## Datenhaltung
 
@@ -8,43 +10,48 @@ Pilotversion für eine kleine externe Testergruppe.
 - `pools` als poolspezifische Stammdaten
 - `events` als zentraler Masterbestand
 - Row Level Security trennt Benutzerbestände
-- IndexedDB wird in dieser Version nicht mehr als Masterbestand verwendet
+- primäre Supabase-Datenbank: Central EU (Frankfurt)
 
 ## Sicherung
 
-- CSV: reiner Rohdatenexport der 21 Ereignisspalten
+- CSV: Rohdatenexport der 21 Ereignisspalten
+- CSV-Export auch für einen frei wählbaren Zeitraum
 - JSON: Ereignisse plus Pool-Stammdaten
-- Import/Wiederherstellung sind in Beta 1 bewusst nicht in der normalen UI verfügbar
+- Import/Wiederherstellung sind in Mini bewusst nicht in der normalen UI verfügbar
 
-## Beta 1
+## Release-Historie
 
+### 1.0.0-beta.1
 - Login, Registrierung, Passwort-Reset und Logout
 - Erstanlage eines Pools nach Registrierung
-- zentrale Ereignisse auf PC und Smartphone
-- zentrale Stammdaten
-- bestehende Mess-/Intervalllogik erhalten
-- sichtbarer Produktname und Versionsnummer auf der Startseite
-- neue PWA-Cache-Version
+- zentrale Ereignisse und Stammdaten auf PC und Smartphone
+- Mess- und Intervalllogik
+- CSV- und JSON-Sicherung
 
-## Noch nicht enthalten
+### 1.0.0-beta.2
+- zuverlässiger Passwort-Recovery-Ablauf
+- konsistenter Kopfbereich mit Poolname und optionalem Benutzerkürzel
+- redundante Seitenüberschriften reduziert
+- neutraler Kürzel-Platzhalter
+- automatische Aktualisierung beim Zurückkehren zur App bzw. zum Browserfenster
+
+### 1.0.0-beta.3
+- professioneller Eröffnungsscreen mit „Einfach · Sicher · Kristallklar“
+- AMMON-Markenmotiv im Splash-Screen
+- neue blaue Markenwelt mit Wellenmotiv
+
+### 1.0.0-beta.4
+- Vorbereitung für den ersten externen Betatest
+- Datenschutzinformation, Impressum und Beta-Hinweise dauerhaft erreichbar
+- Datenschutzhinweis direkt bei der Registrierung
+- einmaliger Beta-Hinweis beim ersten authentifizierten Einstieg je Nutzer und Gerät
+- direkter Feedback-Zugang per E-Mail
+- zentrale Versionsdefinition für App und PWA-Cache
+- fehlendes PWA-Icon im Release-Paket ergänzt
+
+## Bewusst noch nicht enthalten
 
 - Mehrpool-Auswahl in der UI
 - Offline-Synchronisierung
-- Pro-Funktionen, Subscription, KI, Wissen, Empfehlungen, Fotos
-
-
-## 1.0.0-beta.2
-- Passwort-Recovery erkennt den Supabase-Recovery-Link zuverlässig und fordert ein neues Passwort zweimal an
-- nach erfolgreichem Reset ist eine bewusste Neuanmeldung mit dem neuen Passwort erforderlich
-- konsistenter Kopfbereich: FreePoolLog4U, Poolname und optional Benutzerkürzel, Mini-Version
-- redundante Seitenüberschriften reduziert
-- neutraler Kürzel-Platzhalter statt persönlichem Beispiel
-- zentrale Daten werden beim Zurückkehren zur App bzw. zum Browserfenster automatisch neu geladen
-- neue Cache-Version für den PWA-Rollout
-
-
-## 1.0.0-beta.3
-- neuer professioneller Eröffnungsscreen mit FreePoolLog4U, Mini und „Einfach · Sicher · Kristallklar“
-- dezentes AMMON-Markenmotiv im Splash-Screen
-- neue blaue Markenwelt mit Wellenmotiv; Unterseiten optisch daran angeglichen
-- PWA-Cache auf Beta 3 angehoben
+- automatische Bewertung der Wasserchemie oder Dosierungsberatung
+- Pro-Funktionen, Subscription, KI, Wissen, Empfehlungen oder Fotoanalyse

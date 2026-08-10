@@ -25,7 +25,7 @@
     <div>
       <div id="appNameTop" class="brand-name">FreePoolLog4U</div>
       <h1 id="poolIdentityTop" class="pool-identity hidden"></h1>
-      <div id="appVersionTop" class="version-top">Mini Version 1.0.0-beta.2</div>
+      <div id="appVersionTop" class="version-top">Mini Version</div>
     </div>
     <div class="top-actions">
       <button id="logoutBtn" class="text-btn hidden" type="button">Abmelden</button>
@@ -41,6 +41,7 @@
         <label class="field"><span>Passwort</span><input id="authPassword" type="password" autocomplete="current-password"></label>
         <button id="loginBtn" class="primary full-width" type="button">Anmelden</button>
         <button id="registerBtn" class="secondary full-width auth-secondary" type="button">Neu registrieren</button>
+        <p class="legal-note">Mit Deiner Registrierung bestätigst Du, dass Du die <button class="inline-link" type="button" data-legal="privacy">Datenschutzinformation</button> zur Kenntnis genommen hast.</p>
         <button id="resetPasswordBtn" class="text-btn auth-reset" type="button">Passwort vergessen?</button>
         <p id="authMessage" class="auth-message" aria-live="polite"></p>
       </div>
@@ -443,6 +444,10 @@
           <strong>Backup exportieren</strong>
           <span>Vollständige Sicherung der zentralen Pooldaten als JSON</span>
         </button>
+        <button id="feedbackBtn" class="menu-action" type="button">
+          <strong>Feedback geben</strong>
+          <span>Kritik, Fehler oder Verbesserungsvorschläge per E-Mail senden</span>
+        </button>
       </div>
 
       <div class="card">
@@ -454,13 +459,95 @@
 
       <div class="app-info">
         <span>FreePoolLog4U Mini</span>
-        <strong id="appVersion">Version 1.0.0-beta.1</strong>
+        <strong id="appVersion">Mini Version</strong>
       </div>
     </section>
   </main>
 
+
+  <footer class="legal-footer" aria-label="Rechtliche Informationen">
+    <button type="button" data-legal="privacy">Datenschutz</button>
+    <span aria-hidden="true">·</span>
+    <button type="button" data-legal="imprint">Impressum</button>
+    <span aria-hidden="true">·</span>
+    <button type="button" data-legal="beta">Beta-Hinweise</button>
+  </footer>
+
+  <div id="legalModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="legalModalTitle">
+    <div class="modal-panel legal-panel">
+      <div class="modal-head">
+        <h2 id="legalModalTitle"></h2>
+        <button id="closeLegalModalBtn" class="modal-close" type="button" aria-label="Schließen">×</button>
+      </div>
+      <div id="legalModalContent" class="legal-content"></div>
+    </div>
+  </div>
+
+  <div id="betaWelcomeModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="betaWelcomeTitle">
+    <div class="modal-panel">
+      <h2 id="betaWelcomeTitle">Willkommen beim Betatest</h2>
+      <p>FreePoolLog4U Mini befindet sich noch in der Beta-Phase. Trotz sorgfältiger Tests können Fehler auftreten.</p>
+      <p>Mini dient derzeit vor allem dazu, Deine Poolmessungen und Poolpflege strukturiert zu dokumentieren. Eine automatische Bewertung Deiner Wasserwerte oder individuelle Dosierungsberatung bietet Mini noch nicht.</p>
+      <p>Sichere wichtige Daten bei Bedarf zusätzlich über Export oder Backup.</p>
+      <p><strong>Dein Feedback ist ausdrücklich erwünscht.</strong></p>
+      <button id="betaWelcomeOkBtn" class="primary full-width" type="button">Verstanden</button>
+    </div>
+  </div>
+
+  <template id="privacyTemplate">
+    <section>
+      <p><strong>Stand: August 2026</strong></p>
+      <p>Der Schutz Deiner Daten ist uns wichtig. Diese Datenschutzinformation erklärt kurz, welche personenbezogenen Daten bei der Nutzung von FreePoolLog4U Mini verarbeitet werden und wofür sie benötigt werden.</p>
+      <h3>1. Verantwortlicher</h3>
+      <p>Stefan Ammon<br>Arenborner Str. 24<br>34399 Wesertal<br>Deutschland<br>E-Mail: <a href="mailto:freepoollog4u@gmail.com">freepoollog4u@gmail.com</a></p>
+      <h3>2. Welche Daten werden verarbeitet?</h3>
+      <p>Bei der Nutzung werden insbesondere Deine E-Mail-Adresse und erforderliche Authentifizierungsdaten, Pool-Stammdaten, gespeicherte Messungen und Poolpflege-Aktionen, Notizen sowie technisch erforderliche Daten zur Bereitstellung, Anmeldung und Synchronisation verarbeitet.</p>
+      <p>Dein Passwort wird nicht von FreePoolLog4U im Klartext gespeichert.</p>
+      <h3>3. Wofür werden die Daten verwendet?</h3>
+      <p>Die Daten werden verarbeitet, um Dir FreePoolLog4U Mini bereitzustellen. Dazu gehören Registrierung und Anmeldung, Verwaltung Deines Benutzerkontos, Speicherung und Synchronisation Deiner Pooldaten, Versand technisch notwendiger E-Mails sowie technischer Betrieb und Fehlerbehebung während des Betatests.</p>
+      <p>Die Verarbeitung der für die Nutzung erforderlichen Daten erfolgt insbesondere auf Grundlage von Art. 6 Abs. 1 lit. b DSGVO. Soweit eine Verarbeitung zur Gewährleistung eines sicheren und zuverlässigen Betriebs erforderlich ist, kann sie außerdem auf Art. 6 Abs. 1 lit. f DSGVO beruhen.</p>
+      <h3>4. Supabase</h3>
+      <p>Für Benutzerverwaltung, Authentifizierung sowie die zentrale Speicherung und Synchronisation der Pooldaten verwendet FreePoolLog4U Supabase. Die primäre Datenbank wird in der Region Central EU (Frankfurt), Deutschland, betrieben. Supabase verarbeitet Daten im Auftrag des Verantwortlichen.</p>
+      <h3>5. Brevo</h3>
+      <p>Für technisch notwendige Authentifizierungs-E-Mails verwendet FreePoolLog4U Brevo. Das E-Mail-Tracking ist so eingestellt, dass Öffnungen und Klicks nicht einzelnen Empfängern zugeordnet werden. Transaktions-Logs werden derzeit für maximal einen Monat gespeichert; Vorschauen der Transaktions-E-Mails werden nicht aufbewahrt.</p>
+      <h3>6. Speicherdauer</h3>
+      <p>Deine Benutzer-, Pool- und Ereignisdaten werden grundsätzlich gespeichert, solange Dein Benutzerkonto besteht und die Speicherung für die Bereitstellung der Anwendung erforderlich ist. Bei Löschung des Benutzerkontos werden die zugeordneten Pool- und Ereignisdaten gelöscht, soweit keine gesetzlichen oder technisch zwingenden Gründe eine vorübergehende weitere Speicherung erfordern.</p>
+      <h3>7. Weitergabe und Nutzung</h3>
+      <p>Deine Daten werden nicht verkauft und nicht zu Werbezwecken an Dritte weitergegeben. Dienstleister erhalten Daten nur, soweit dies für den technischen Betrieb erforderlich ist oder eine andere gesetzliche Grundlage besteht.</p>
+      <h3>8. Deine Rechte</h3>
+      <p>Du hast im Rahmen der gesetzlichen Voraussetzungen insbesondere Rechte auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung, Datenübertragbarkeit und Widerspruch gegen bestimmte Verarbeitungen. Außerdem hast Du das Recht, Dich bei einer Datenschutzaufsichtsbehörde zu beschweren.</p>
+      <p>Bei Fragen zum Datenschutz oder zur Löschung Deines Benutzerkontos und Deiner personenbezogenen Daten schreibe an <a href="mailto:freepoollog4u@gmail.com">freepoollog4u@gmail.com</a>.</p>
+    </section>
+  </template>
+
+  <template id="imprintTemplate">
+    <section>
+      <p><strong>Angaben gemäß § 5 DDG</strong></p>
+      <p>Stefan Ammon<br>Arenborner Str. 24<br>34399 Wesertal<br>Deutschland</p>
+      <h3>Kontakt</h3>
+      <p>E-Mail: <a href="mailto:freepoollog4u@gmail.com">freepoollog4u@gmail.com</a></p>
+      <p>Verantwortlich für FreePoolLog4U: Stefan Ammon</p>
+    </section>
+  </template>
+
+  <template id="betaTemplate">
+    <section>
+      <p><strong>FreePoolLog4U Mini befindet sich derzeit in der Beta-Phase.</strong></p>
+      <p>Mini hilft Dir dabei, Poolmessungen, Poolpflege und wichtige Aktionen einfach und strukturiert zu dokumentieren, wiederzufinden und zu sichern.</p>
+      <p>Die Anwendung wurde bereits umfangreich getestet. Bei einer Beta-Version können trotzdem Fehler, Darstellungsprobleme oder unerwartetes Verhalten auftreten. Nutze deshalb bei wichtigen Daten regelmäßig die vorhandene Export- bzw. Backup-Funktion.</p>
+      <h3>Wichtig zur Wasserpflege</h3>
+      <p>FreePoolLog4U Mini dient derzeit in erster Linie der Dokumentation Deiner Pooldaten. Mini bewertet Deine Wasserwerte nicht automatisch und gibt derzeit keine individuelle Dosierungsberatung für Poolchemikalien. Die Anwendung ersetzt deshalb weder die eigenverantwortliche Kontrolle der Wasserqualität noch die Sicherheits-, Dosierungs- und Anwendungshinweise der Hersteller von Poolpflegeprodukten.</p>
+      <h3>Dein Feedback gehört zum Betatest</h3>
+      <p>Wenn Dir etwas unverständlich erscheint, eine Eingabe umständlich ist, etwas fehlt oder nicht funktioniert, möchten wir es wissen. Auch Kritik ist ausdrücklich erwünscht.</p>
+      <p>Kontakt: <a href="mailto:freepoollog4u@gmail.com">freepoollog4u@gmail.com</a></p>
+      <p><strong>Mini dokumentiert. Pro soll mitdenken.</strong></p>
+      <p>FreePoolLog4U Mini ist der Anfang. Für die weitere Entwicklung ist geplant, aus den dokumentierten Informationen künftig noch mehr praktischen Nutzen für die Poolpflege zu ziehen.</p>
+    </section>
+  </template>
+
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
+  <script src="version.js"></script>
   <script type="module" src="app.js"></script>
 </body>
 </html>

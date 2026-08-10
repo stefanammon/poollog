@@ -1,5 +1,6 @@
-const CACHE="poollog-mini-1.0.0-beta.3";
-const ASSETS=["./","./index.html","./styles.css","./app.js","./manifest.webmanifest","./icon.svg"];
+importScripts("./version.js");
+const CACHE=`poollog-mini-${self.FPL_VERSION || "dev"}`;
+const ASSETS=["./","./index.html","./styles.css","./version.js","./app.js","./manifest.webmanifest","./icon.svg"];
 
 self.addEventListener("install",event=>{
   self.skipWaiting();

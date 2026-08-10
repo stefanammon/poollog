@@ -1,4 +1,4 @@
-const CACHE="poollog-v1.6";
+const CACHE="poollog-v1.6.1";
 const ASSETS=["./","./index.html","./styles.css","./app.js","./manifest.webmanifest","./icon.svg"];
 
 self.addEventListener("install",event=>{

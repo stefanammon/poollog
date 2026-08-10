@@ -1,5 +1,5 @@
 
-const APP_VERSION = "1.6";
+const APP_VERSION = "1.6.1";
 const HEADERS = ["Kürzel", "Datum", "Uhrzeit", "Aktion", "Reinigungsart", "Wasserlinie", "Wassertemperatur", "Außentemperatur", "Innendach", "fCl", "fCl_Status", "CYA", "TA", "pH", "Wasseroptik", "Dach_Offen_h", "Badebetrieb_h", "Chlorschwimmer_h", "Pumpe_h", "CHC_g", "Notiz"];
 const SEED_DATA = [];
 const DB_NAME = "PoolLogDB";
@@ -169,6 +169,11 @@ async function applyIntervalDefaults(force=false){
   }
 }
 
+function formatGermanDate(isoDate){
+  const m=String(isoDate||"").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m ? `${m[3]}.${m[2]}.${m[1]}` : String(isoDate||"");
+}
+
 async function updateElapsedSinceMeasurement(){
   const target=$("elapsedSinceMeasurement");
   const badge=$("intervalTypeBadge");
@@ -195,7 +200,7 @@ async function updateElapsedSinceMeasurement(){
     target.textContent="keine frühere Messung";
     badge.textContent="–";
     badge.className="interval-badge neutral";
-    context.textContent="Für die Intervall-Eingabe fehlt eine frühere gespeicherte Messung.";
+    context.textContent="Es wurde keine frühere gespeicherte Messung gefunden. Deshalb kann für diesen Eintrag noch keine Zeitspanne bestimmt werden.";
     currentInterval={hours:null,type:"",previous:null,dayHours:0,nightHours:0};
     return;
   }
@@ -216,18 +221,24 @@ async function updateElapsedSinceMeasurement(){
 
   target.textContent=formatHours(hours);
 
+  const almostZero=0.02;
   if(cls.type==="day"){
-    badge.textContent="☀ Tag";
+    badge.textContent=cls.nightHours<=almostZero ? "☀ vollständig tagsüber" : "☀ überwiegend tagsüber";
     badge.className="interval-badge day";
   }else if(cls.type==="night"){
-    badge.textContent="🌙 Nacht";
+    badge.textContent=cls.dayHours<=almostZero ? "🌙 vollständig nachts" : "🌙 überwiegend nachts";
     badge.className="interval-badge night";
   }else{
-    badge.textContent="◐ Gemischt";
+    badge.textContent="◐ gemischter Zeitraum";
     badge.className="interval-badge mixed";
   }
 
-  context.textContent=`Letzte Messung: ${last.r.Datum} ${last.r.Uhrzeit || "00:00"} · Taganteil ${cls.dayHours.toLocaleString("de-DE",{maximumFractionDigits:1})} h · Nachtanteil ${cls.nightHours.toLocaleString("de-DE",{maximumFractionDigits:1})} h`;
+  const previousDate=formatGermanDate(last.r.Datum);
+  const previousTime=last.r.Uhrzeit || "00:00";
+  const span=formatHours(hours);
+  const dayText=cls.dayHours.toLocaleString("de-DE",{maximumFractionDigits:1});
+  const nightText=cls.nightHours.toLocaleString("de-DE",{maximumFractionDigits:1});
+  context.innerHTML=`Die vorherige Messung war am <strong>${previousDate}</strong> um <strong>${previousTime} Uhr</strong>. Die folgenden Angaben beziehen sich auf die <strong>${span}</strong> zwischen dieser Messung und jetzt.<br><span class="interval-split">Davon tagsüber: ${dayText} h · nachts: ${nightText} h</span>`;
 
   await applyIntervalDefaults(false);
 }

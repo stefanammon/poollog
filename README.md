@@ -41,3 +41,10 @@ Pilotversion für eine kleine externe Testergruppe.
 - neutraler Kürzel-Platzhalter statt persönlichem Beispiel
 - zentrale Daten werden beim Zurückkehren zur App bzw. zum Browserfenster automatisch neu geladen
 - neue Cache-Version für den PWA-Rollout
+
+
+## 1.0.0-beta.3
+- neuer professioneller Eröffnungsscreen mit FreePoolLog4U, Mini und „Einfach · Sicher · Kristallklar“
+- dezentes AMMON-Markenmotiv im Splash-Screen
+- neue blaue Markenwelt mit Wellenmotiv; Unterseiten optisch daran angeglichen
+- PWA-Cache auf Beta 3 angehoben

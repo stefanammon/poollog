@@ -1,6 +1,6 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
-const APP_VERSION = "1.0.0-beta.2";
+const APP_VERSION = "1.0.0-beta.3";
 const APP_LABEL = "FreePoolLog4U";
 const SUPABASE_URL = "https://yxuobeqkxewznneqcpbz.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_77QwPv7tJrTenyrHGZHjWg_2UTuzVgk";
@@ -1137,3 +1137,13 @@ supabase.auth.onAuthStateChange((event,session)=>{
     navigator.serviceWorker.register("service-worker.js").catch(console.error);
   }
 })();
+
+
+// Beta 3: branded opening screen. It is deliberately brief and never blocks app use.
+function dismissSplash(){
+  const splash=$("splashScreen");
+  if(!splash) return;
+  splash.classList.add("splash-hide");
+  setTimeout(()=>splash.remove(),500);
+}
+window.addEventListener("load",()=>setTimeout(dismissSplash,1100),{once:true});

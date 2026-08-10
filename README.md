@@ -61,3 +61,14 @@ Pilotversion für einen geschlossenen externen Betatest mit bis zu 20 Personen.
 
 ## Einmalige Datenbankmigration für dieses Update
 Vor dem Deployment `SUPABASE_BETA4_CLEANING_TYPES.sql` im Supabase SQL Editor ausführen. Die Tabelle ist per RLS auf den jeweiligen Pool-Eigentümer beschränkt.
+
+## Beta 4 – Mehrfachauswahl Reinigung
+
+Für Reinigungsvorgänge können mehrere konkrete Reinigungsarten gleichzeitig ausgewählt werden.
+Die Zuordnung wird normalisiert in `event_cleaning_types` gespeichert; historische Bezeichnungen bleiben als Snapshot erhalten.
+
+Vor dem Deployment dieses Stands einmalig im Supabase SQL Editor ausführen:
+
+`SUPABASE_BETA4_MULTIPLE_CLEANING_TYPES.sql`
+
+Das Skript übernimmt vorhandene Einzel-Reinigungen in das neue Modell und setzt die erforderlichen RLS-Policies und GRANT-Rechte.

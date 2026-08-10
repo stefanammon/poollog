@@ -267,3 +267,10 @@ button:disabled{opacity:.62;cursor:wait}
 .config-row input,.config-add-row input{min-width:0}
 .delete-config{white-space:nowrap}
 @media(max-width:430px){.config-row,.config-add-row{grid-template-columns:1fr}.delete-config{justify-self:start}}
+
+/* Beta 4 – Mehrfachauswahl Reinigung */
+.cleaning-choice-list{display:grid;gap:8px;margin-top:8px}
+.cleaning-choice{display:flex;align-items:center;gap:10px;padding:11px 12px;border:1px solid var(--line,#d8e1ea);border-radius:12px;background:var(--surface,#fff);cursor:pointer}
+.cleaning-choice input{width:20px;height:20px;flex:0 0 auto;margin:0}
+.cleaning-choice span{font-weight:600}
+.cleaning-choice:has(input:checked){outline:2px solid rgba(24,105,170,.18);border-color:#4d96cf}

@@ -5,7 +5,7 @@ const APP_LABEL = "FreePoolLog4U";
 const SUPABASE_URL = "https://yxuobeqkxewznneqcpbz.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_77QwPv7tJrTenyrHGZHjWg_2UTuzVgk";
 const SITE_URL = "https://stefanammon.github.io/poollog/";
-const HEADERS = ["Kürzel", "Datum", "Uhrzeit", "Aktion", "Reinigungsart", "Wasserlinie", "Wassertemperatur", "Außentemperatur", "Innendach", "fCl", "fCl_Status", "CYA", "TA", "pH", "Wasseroptik", "Dach_Offen_h", "Badebetrieb_h", "Chlorschwimmer_h", "Pumpe_h", "CHC_g", "Notiz"];
+const HEADERS = ["Kürzel", "Datum", "Uhrzeit", "Aktion", "Reinigungsarten", "Wasserlinie", "Wassertemperatur", "Außentemperatur", "Innendach", "fCl", "fCl_Status", "CYA", "TA", "pH", "Wasseroptik", "Dach_Offen_h", "Badebetrieb_h", "Chlorschwimmer_h", "Pumpe_h", "CHC_g", "Notiz"];
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 let currentUser = null;
@@ -361,7 +361,7 @@ function eventFromDb(row){
     "Datum":dbText(row.event_date),
     "Uhrzeit":trimTime(row.event_time),
     "Aktion":dbText(row.action),
-    "Reinigungsart":dbText(row.cleaning_type),
+    "Reinigungsarten":dbText(row.cleaning_type),
     "Wasserlinie":dbNumberText(row.waterline_mm),
     "Wassertemperatur":dbNumberText(row.water_temp_c),
     "Außentemperatur":dbNumberText(row.air_temp_c),
@@ -388,7 +388,7 @@ function eventToDb(record){
     event_date:record["Datum"],
     event_time:nullableText(record["Uhrzeit"]),
     action:record["Aktion"],
-    cleaning_type:nullableText(record["Reinigungsart"]),
+    cleaning_type:null,
     waterline_mm:nullableNumber(record["Wasserlinie"]),
     water_temp_c:nullableNumber(record["Wassertemperatur"]),
     air_temp_c:nullableNumber(record["Außentemperatur"]),
@@ -406,6 +406,70 @@ function eventToDb(record){
     chc_g:nullableNumber(record["CHC_g"]),
     note:nullableText(record["Notiz"])
   };
+}
+
+async function getCleaningAssignments(){
+  if(!currentPool) return [];
+  const rows=[];
+  const pageSize=1000;
+  for(let from=0;;from+=pageSize){
+    const {data,error}=await supabase
+      .from("event_cleaning_types")
+      .select("event_id,cleaning_type_id,cleaning_type_name")
+      .eq("pool_id",currentPool.id)
+      .order("id",{ascending:true})
+      .range(from,from+pageSize-1);
+    if(error) throw error;
+    rows.push(...(data||[]));
+    if(!data || data.length<pageSize) break;
+  }
+  return rows;
+}
+
+async function getCleaningAssignmentsForEvent(eventId){
+  const {data,error}=await supabase
+    .from("event_cleaning_types")
+    .select("cleaning_type_id,cleaning_type_name")
+    .eq("pool_id",currentPool.id)
+    .eq("event_id",eventId)
+    .order("id",{ascending:true});
+  if(error) throw error;
+  return data||[];
+}
+
+function attachCleaningAssignments(records,assignments){
+  const byEvent=new Map();
+  for(const item of assignments){
+    const key=String(item.event_id);
+    if(!byEvent.has(key)) byEvent.set(key,[]);
+    byEvent.get(key).push({id:item.cleaning_type_id,name:String(item.cleaning_type_name||"").trim()});
+  }
+  for(const record of records){
+    const items=(byEvent.get(String(record._id))||[]).filter(x=>x.name);
+    record._cleaningTypes=items;
+    if(items.length) record["Reinigungsarten"]=items.map(x=>x.name).join(" | ");
+  }
+  return records;
+}
+
+async function replaceCleaningAssignments(eventId,selectedIds){
+  const ids=[...new Set((selectedIds||[]).map(String))];
+  const selected=ids.map(id=>cleaningTypes.find(x=>String(x.id)===id)).filter(Boolean);
+  const {error:deleteError}=await supabase
+    .from("event_cleaning_types")
+    .delete()
+    .eq("pool_id",currentPool.id)
+    .eq("event_id",eventId);
+  if(deleteError) throw deleteError;
+  if(!selected.length) return;
+  const rows=selected.map(item=>({
+    pool_id:currentPool.id,
+    event_id:eventId,
+    cleaning_type_id:item.id,
+    cleaning_type_name:item.name
+  }));
+  const {error:insertError}=await supabase.from("event_cleaning_types").insert(rows);
+  if(insertError) throw insertError;
 }
 
 function poolToMasterData(pool){
@@ -439,7 +503,9 @@ async function getAllRecords(){
     rows.push(...(data||[]));
     if(!data || data.length<pageSize) break;
   }
-  return rows.map(eventFromDb);
+  const records=rows.map(eventFromDb);
+  const assignments=await getCleaningAssignments();
+  return attachCleaningAssignments(records,assignments);
 }
 
 async function getRecord(id){
@@ -450,7 +516,10 @@ async function getRecord(id){
     .eq("pool_id",currentPool.id)
     .maybeSingle();
   if(error) throw error;
-  return data ? eventFromDb(data) : null;
+  if(!data) return null;
+  const record=eventFromDb(data);
+  const assignments=await getCleaningAssignmentsForEvent(id);
+  return attachCleaningAssignments([record],assignments)[0];
 }
 
 async function addRecord(record){
@@ -460,6 +529,7 @@ async function addRecord(record){
     .select("id")
     .single();
   if(error) throw error;
+  if(record.Aktion==="Reinigung") await replaceCleaningAssignments(data.id,record._cleaningTypeIds||[]);
   return data.id;
 }
 
@@ -471,6 +541,7 @@ async function putRecord(record){
     .eq("id",record._id)
     .eq("pool_id",currentPool.id);
   if(error) throw error;
+  if(record.Aktion==="Reinigung") await replaceCleaningAssignments(record._id,record._cleaningTypeIds||[]);
 }
 
 async function deleteRecord(id){
@@ -502,13 +573,33 @@ async function loadCleaningTypes(){
   renderCleaningTypeSelect();
 }
 
-function renderCleaningTypeSelect(selected=""){
-  const select=$("Reinigungsart");
-  if(!select) return;
-  const current=selected || select.value || "";
-  select.replaceChildren(new Option("",""), ...cleaningTypes.map(x=>new Option(x.name,x.name)));
-  if(current && !cleaningTypes.some(x=>x.name===current)) select.append(new Option(`${current} (historischer Wert)`,current));
-  select.value=current;
+function selectedCleaningTypeIds(){
+  return [...document.querySelectorAll('input[name="Reinigungsart"]:checked')].map(x=>x.value);
+}
+
+function renderCleaningTypeSelect(selectedIds=[]){
+  const box=$("Reinigungsarten");
+  if(!box) return;
+  const selected=new Set((selectedIds||[]).map(String));
+  box.replaceChildren(...cleaningTypes.map(item=>{
+    const label=document.createElement("label");
+    label.className="cleaning-choice";
+    const input=document.createElement("input");
+    input.type="checkbox";
+    input.name="Reinigungsart";
+    input.value=String(item.id);
+    input.checked=selected.has(String(item.id));
+    const text=document.createElement("span");
+    text.textContent=item.name;
+    label.append(input,text);
+    return label;
+  }));
+  if(!cleaningTypes.length){
+    const hint=document.createElement("p");
+    hint.className="hint";
+    hint.textContent="Lege zuerst in den Pool-Stammdaten mindestens eine Reinigungsart an.";
+    box.append(hint);
+  }
 }
 
 function renderCleaningTypesConfig(){
@@ -709,7 +800,11 @@ function buildRecord(){
   } else if(action==="Chlorung"){
     rec["CHC_g"]=numericValueOf("CHC_g");
   } else if(action==="Reinigung"){
-    rec["Reinigungsart"]=valueOf("Reinigungsart");
+    rec._cleaningTypeIds=selectedCleaningTypeIds();
+    rec["Reinigungsarten"]=rec._cleaningTypeIds
+      .map(id=>cleaningTypes.find(x=>String(x.id)===String(id))?.name)
+      .filter(Boolean)
+      .join(" | ");
   } else if(action==="Wasserfüllung"){
     rec["Wasserlinie"]=numericValueOf("WasserlinieOther");
   }
@@ -720,6 +815,7 @@ function buildRecord(){
 function validateRecord(rec){
   if(!rec.Datum) return "Datum fehlt.";
   if(!rec.Aktion) return "Aktion fehlt.";
+  if(rec.Aktion==="Reinigung" && (!rec._cleaningTypeIds || rec._cleaningTypeIds.length===0)) return "Bitte mindestens eine Reinigungsart auswählen.";
   if(rec.Aktion==="Chlorung" && rec.CHC_g!=="" && Number(rec.CHC_g)<0) return "CHC_g darf nicht negativ sein.";
   const nonNegative=["fCl","CYA","TA","Dach_Offen_h","Badebetrieb_h","Chlorschwimmer_h","Pumpe_h","CHC_g"];
   for(const k of nonNegative) if(rec[k]!=="" && Number(rec[k])<0) return `${k} darf nicht negativ sein.`;
@@ -746,7 +842,7 @@ function humanSummary(r){
   if(r.fCl_Status) bits.push(`fCl ${r.fCl_Status}`);
   if(r.pH!=="") bits.push(`pH ${r.pH}`);
   if(r.CHC_g!=="") bits.push(`${r.CHC_g} g CHC`);
-  if(r.Reinigungsart) bits.push(r.Reinigungsart);
+  if(r.Reinigungsarten) bits.push(r.Reinigungsarten);
   if(r.Notiz) bits.push(r.Notiz);
   return bits.slice(0,3).join(" · ") || "Keine weiteren Angaben";
 }
@@ -802,13 +898,16 @@ async function editRecord(id){
   if([...$("Kürzel").options].some(o=>o.value===r.Kürzel)) $("Kürzel").value=r.Kürzel;
   updateActionUI();
   const mapping={
-    Reinigungsart:"Reinigungsart",CHC_g:"CHC_g",Wasserlinie:"Wasserlinie",
+    CHC_g:"CHC_g",Wasserlinie:"Wasserlinie",
     Wassertemperatur:"Wassertemperatur",Außentemperatur:"Außentemperatur",
     Innendach:"Innendach",fCl:"fCl",fCl_Status:"fCl_Status",CYA:"CYA",TA:"TA",pH:"pH",
     Wasseroptik:"Wasseroptik",Notiz:"Notiz"
   };
   for(const [k,id2] of Object.entries(mapping)) if($(id2)) $(id2).value=r[k]??"";
-  if(r.Aktion==="Reinigung") renderCleaningTypeSelect(r.Reinigungsart||"");
+  if(r.Aktion==="Reinigung"){
+    const ids=(r._cleaningTypes||[]).map(x=>x.id).filter(x=>x!==null && x!==undefined);
+    renderCleaningTypeSelect(ids);
+  }
   if(r.Aktion==="Wasserfüllung") $("WasserlinieOther").value=r.Wasserlinie??"";
   await updateElapsedSinceMeasurement();
 
@@ -1088,6 +1187,7 @@ async function startAuthenticatedApp(){
   $("logoutBtn").classList.remove("hidden");
   switchView("entryView");
   updateHeader();
+  await loadCleaningTypes();
   setDefaults();
   $("exportFrom").value=localDateString();
   $("exportTo").value=localDateString();

@@ -28,3 +28,13 @@ Regelmäßig CSV oder JSON-Backup aus der App exportieren.
 - getrennte Tag-/Nacht-Standards für Dach offen, Badebetrieb, Pumpe und Chlorschwimmer
 - Standards unterscheiden bewusst zwischen „nicht erfasst“, 0 Stunden und gesamtem Intervall
 - Messdatenstruktur bleibt unverändert
+
+
+## V1.6
+- automatische Intervallklassifikation: Tag / Nacht / Gemischt
+- Tag/Nacht basiert auf Stammdaten und Zeitanteilen des Intervalls, nicht nur auf Uhrzeit der aktuellen Messung
+- sehr lange Intervalle (ab 20 h) werden bewusst als „Gemischt“ behandelt
+- zustandsorientierte Eingabe für Dach, Badebetrieb, Pumpe und Chlorschwimmer
+- Stammdaten liefern nur Vorschläge; aus Zuständen entstehen weiterhin ausschließlich die bestehenden *_h-Rohwerte
+- JSON-Backup enthält jetzt zusätzlich die Stammdaten und stellt sie wieder her
+- CSV bleibt unverändert reiner Rohdatenexport

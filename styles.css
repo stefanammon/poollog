@@ -136,3 +136,36 @@ input:focus,select:focus,textarea:focus{border-color:var(--brand);box-shadow:0 0
   padding-top:12px;border-top:1px solid var(--line)
 }
 #masterDataView .card h2{margin-bottom:8px}
+
+.interval-head{
+  display:flex;justify-content:space-between;align-items:center;gap:12px;
+  background:#eaf2f5;border:1px solid #d1e0e6;border-radius:12px;
+  padding:11px 12px;margin:2px 0 8px
+}
+.interval-head>div{display:flex;flex-direction:column;gap:2px}
+.interval-label{font-size:.78rem;color:#687982}
+.interval-head strong{font-size:1.05rem;color:#0b5d7a}
+.interval-badge{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-width:86px;padding:7px 10px;border-radius:999px;
+  font-weight:800;font-size:.82rem;border:1px solid transparent
+}
+.interval-badge.day{background:#fff4c7;color:#735c00;border-color:#ead77e}
+.interval-badge.night{background:#e8ecf8;color:#334574;border-color:#c8d0ea}
+.interval-badge.mixed{background:#eee;color:#4f5960;border-color:#d2d7da}
+.interval-badge.neutral{background:#f2f4f5;color:#687982;border-color:#dde2e4}
+.interval-control{
+  border-top:1px solid var(--line);padding-top:11px;margin-top:4px
+}
+.interval-control .field{margin-bottom:9px}
+.partial-hours{
+  background:#f7f9fa;border-radius:10px;padding:10px;margin-top:-2px
+}
+.interval-note{margin:12px 2px 0}
+.suggested select{
+  background:#eef7ef;border-color:#accbb1
+}
+.suggested .field>span::after{
+  content:"Vorschlag";font-size:.72rem;font-weight:700;color:#4f7c58;
+  margin-left:auto
+}

@@ -1,5 +1,5 @@
 
-const APP_VERSION = "1.5";
+const APP_VERSION = "1.6";
 const HEADERS = ["Kürzel", "Datum", "Uhrzeit", "Aktion", "Reinigungsart", "Wasserlinie", "Wassertemperatur", "Außentemperatur", "Innendach", "fCl", "fCl_Status", "CYA", "TA", "pH", "Wasseroptik", "Dach_Offen_h", "Badebetrieb_h", "Chlorschwimmer_h", "Pumpe_h", "CHC_g", "Notiz"];
 const SEED_DATA = [];
 const DB_NAME = "PoolLogDB";
@@ -55,39 +55,181 @@ function formatHours(hours){
   return `${days} T ${rem.toLocaleString("de-DE",{minimumFractionDigits:1,maximumFractionDigits:1})} h`;
 }
 
+let currentInterval = {
+  hours:null,
+  type:"",
+  previous:null,
+  dayHours:0,
+  nightHours:0
+};
+
+function minutesOfDay(timeStr){
+  const m=String(timeStr||"").match(/^(\d{1,2}):(\d{2})$/);
+  if(!m) return null;
+  return Number(m[1])*60+Number(m[2]);
+}
+
+function isDayMinute(minute, dayStart, nightStart){
+  if(dayStart < nightStart){
+    return minute>=dayStart && minute<nightStart;
+  }
+  return minute>=dayStart || minute<nightStart;
+}
+
+function classifyInterval(start,end,dayStartStr,nightStartStr){
+  const dayStart=minutesOfDay(dayStartStr);
+  const nightStart=minutesOfDay(nightStartStr);
+  if(!start || !end || dayStart===null || nightStart===null || end<=start){
+    return {type:"",dayHours:0,nightHours:0,totalHours:0};
+  }
+
+  let cursor=new Date(start.getTime());
+  let dayMinutes=0, nightMinutes=0;
+  while(cursor < end){
+    const next=new Date(Math.min(end.getTime(),cursor.getTime()+60000));
+    const minute=cursor.getHours()*60+cursor.getMinutes();
+    const diff=(next-cursor)/60000;
+    if(isDayMinute(minute,dayStart,nightStart)) dayMinutes+=diff;
+    else nightMinutes+=diff;
+    cursor=next;
+  }
+
+  const total=dayMinutes+nightMinutes;
+  let type="";
+  // Very long intervals intentionally stay "gemischt": they are poor candidates
+  // for automatic day/night defaults even if one side is mathematically longer.
+  if(total >= 20*60) type="mixed";
+  else if(Math.abs(dayMinutes-nightMinutes) < 1) type="mixed";
+  else type=dayMinutes>nightMinutes ? "day" : "night";
+
+  return {
+    type,
+    dayHours:dayMinutes/60,
+    nightHours:nightMinutes/60,
+    totalHours:total/60
+  };
+}
+
+function stateIds(){
+  return [
+    ["Dach_Offen","Roof"],
+    ["Badebetrieb","Bath"],
+    ["Pumpe","Pump"],
+    ["Chlorschwimmer","Float"]
+  ];
+}
+
+function setStateUI(prefix,state,asSuggestion=false){
+  const select=$(prefix+"_state");
+  const wrap=$(prefix+"_partialWrap");
+  if(!select || !wrap) return;
+  select.value=state ?? "";
+  wrap.classList.toggle("hidden",state!=="partial");
+  const container=select.closest(".interval-control");
+  if(container) container.classList.toggle("suggested",!!asSuggestion && !!state);
+  if(state!=="partial" && $(prefix+"_h")) $(prefix+"_h").value="";
+}
+
+function intervalValueFromState(prefix){
+  const state=valueOf(prefix+"_state");
+  if(state==="") return "";
+  if(state==="zero") return "0";
+  if(state==="full"){
+    if(!Number.isFinite(currentInterval.hours)) return "";
+    return String(Math.round(currentInterval.hours*100)/100);
+  }
+  if(state==="partial") return numericValueOf(prefix+"_h");
+  return "";
+}
+
+async function getMasterData(){
+  const saved=await getSetting("masterData");
+  return {...MASTER_DEFAULTS,...(saved||{})};
+}
+
+async function applyIntervalDefaults(force=false){
+  if(editingId!==null && !force) return;
+  const md=await getMasterData();
+  const type=currentInterval.type;
+
+  for(const [prefix,key] of stateIds()){
+    const select=$(prefix+"_state");
+    if(!select) continue;
+
+    // Preserve a user's manual choice unless explicitly refreshing.
+    if(!force && select.dataset.touched==="1") continue;
+
+    let suggested="";
+    if(type==="night") suggested=md["night"+key] ?? "";
+    else if(type==="day") suggested=md["day"+key] ?? "";
+    else suggested="";
+
+    setStateUI(prefix,suggested,!!suggested);
+    select.dataset.touched="0";
+  }
+}
+
 async function updateElapsedSinceMeasurement(){
   const target=$("elapsedSinceMeasurement");
+  const badge=$("intervalTypeBadge");
+  const context=$("intervalContextText");
   if(!target || !db) return;
 
   const current=parseLocalDateTime(valueOf("Datum"),valueOf("Uhrzeit"));
   if(!current){
     target.textContent="–";
-    target.title="";
+    badge.textContent="–";
+    badge.className="interval-badge neutral";
+    currentInterval={hours:null,type:"",previous:null,dayHours:0,nightHours:0};
     return;
   }
 
   const rows=await getAllRecords();
   const candidates=rows
     .filter(r=>String(r.Aktion ?? "").trim().toLocaleLowerCase("de-DE")==="messung")
-    .map(r=>{
-      const date=String(r.Datum ?? "").trim();
-      const time=String(r.Uhrzeit ?? "").trim();
-      return {r,dt:parseLocalDateTime(date,time)};
-    })
+    .map(r=>({r,dt:parseLocalDateTime(String(r.Datum??"").trim(),String(r.Uhrzeit??"").trim())}))
     .filter(x=>x.dt && x.dt.getTime() < current.getTime() && x.r._id!==editingId)
     .sort((a,b)=>b.dt.getTime()-a.dt.getTime());
 
   if(!candidates.length){
     target.textContent="keine frühere Messung";
-    target.title="";
+    badge.textContent="–";
+    badge.className="interval-badge neutral";
+    context.textContent="Für die Intervall-Eingabe fehlt eine frühere gespeicherte Messung.";
+    currentInterval={hours:null,type:"",previous:null,dayHours:0,nightHours:0};
     return;
   }
 
   const last=candidates[0];
   const minutes=Math.round((current.getTime()-last.dt.getTime())/60000);
   const hours=minutes/60;
+  const md=await getMasterData();
+  const cls=classifyInterval(last.dt,current,md.dayStart,md.nightStart);
+
+  currentInterval={
+    hours,
+    type:cls.type,
+    previous:last,
+    dayHours:cls.dayHours,
+    nightHours:cls.nightHours
+  };
+
   target.textContent=formatHours(hours);
-  target.title=`Letzte Messung: ${last.r.Datum} ${last.r.Uhrzeit || "00:00"}`;
+
+  if(cls.type==="day"){
+    badge.textContent="☀ Tag";
+    badge.className="interval-badge day";
+  }else if(cls.type==="night"){
+    badge.textContent="🌙 Nacht";
+    badge.className="interval-badge night";
+  }else{
+    badge.textContent="◐ Gemischt";
+    badge.className="interval-badge mixed";
+  }
+
+  context.textContent=`Letzte Messung: ${last.r.Datum} ${last.r.Uhrzeit || "00:00"} · Taganteil ${cls.dayHours.toLocaleString("de-DE",{maximumFractionDigits:1})} h · Nachtanteil ${cls.nightHours.toLocaleString("de-DE",{maximumFractionDigits:1})} h`;
+
+  await applyIntervalDefaults(false);
 }
 
 function openDB(){
@@ -234,6 +376,10 @@ function setDefaults(){
   editingId=null;
   $("saveBtn").textContent="Speichern";
   $("cancelEditBtn").classList.add("hidden");
+  for(const [prefix] of stateIds()){
+    const s=$(prefix+"_state");
+    if(s){ s.dataset.touched="0"; setStateUI(prefix,"",false); }
+  }
   updateActionUI();
   updateElapsedSinceMeasurement();
 }
@@ -268,7 +414,11 @@ function buildRecord(){
 
   if(action==="Messung"){
     for(const h of ["Innendach","fCl_Status","Wasseroptik"]) rec[h]=valueOf(h);
-    for(const h of ["Wasserlinie","Wassertemperatur","Außentemperatur","fCl","CYA","TA","pH","Dach_Offen_h","Badebetrieb_h","Chlorschwimmer_h","Pumpe_h"]) rec[h]=numericValueOf(h);
+    for(const h of ["Wasserlinie","Wassertemperatur","Außentemperatur","fCl","CYA","TA","pH"]) rec[h]=numericValueOf(h);
+    rec["Dach_Offen_h"]=intervalValueFromState("Dach_Offen");
+    rec["Badebetrieb_h"]=intervalValueFromState("Badebetrieb");
+    rec["Chlorschwimmer_h"]=intervalValueFromState("Chlorschwimmer");
+    rec["Pumpe_h"]=intervalValueFromState("Pumpe");
   } else if(action==="Chlorung"){
     rec["CHC_g"]=numericValueOf("CHC_g");
   } else if(action==="Reinigung"){
@@ -287,6 +437,11 @@ function validateRecord(rec){
   const nonNegative=["fCl","CYA","TA","Dach_Offen_h","Badebetrieb_h","Chlorschwimmer_h","Pumpe_h","CHC_g"];
   for(const k of nonNegative) if(rec[k]!=="" && Number(rec[k])<0) return `${k} darf nicht negativ sein.`;
   if(rec.pH!=="" && (Number(rec.pH)<0 || Number(rec.pH)>14)) return "pH muss zwischen 0 und 14 liegen.";
+  if(rec.Aktion==="Messung" && Number.isFinite(currentInterval.hours)){
+    for(const k of ["Dach_Offen_h","Badebetrieb_h","Chlorschwimmer_h","Pumpe_h"]){
+      if(rec[k]!=="" && Number(rec[k])>currentInterval.hours+0.05) return `${k} kann nicht länger als das Messintervall sein.`;
+    }
+  }
   return "";
 }
 
@@ -363,12 +518,29 @@ async function editRecord(id){
     Reinigungsart:"Reinigungsart",CHC_g:"CHC_g",Wasserlinie:"Wasserlinie",
     Wassertemperatur:"Wassertemperatur",Außentemperatur:"Außentemperatur",
     Innendach:"Innendach",fCl:"fCl",fCl_Status:"fCl_Status",CYA:"CYA",TA:"TA",pH:"pH",
-    Wasseroptik:"Wasseroptik",Dach_Offen_h:"Dach_Offen_h",Badebetrieb_h:"Badebetrieb_h",
-    Chlorschwimmer_h:"Chlorschwimmer_h",Pumpe_h:"Pumpe_h",Notiz:"Notiz"
+    Wasseroptik:"Wasseroptik",Notiz:"Notiz"
   };
   for(const [k,id2] of Object.entries(mapping)) if($(id2)) $(id2).value=r[k]??"";
   if(r.Aktion==="Wasserfüllung") $("WasserlinieOther").value=r.Wasserlinie??"";
   await updateElapsedSinceMeasurement();
+
+  for(const [prefix] of stateIds()){
+    const raw=r[prefix+"_h"];
+    let state="";
+    if(raw!==null && raw!==undefined && String(raw)!==""){
+      const n=Number(raw);
+      if(Number.isFinite(n)){
+        if(Math.abs(n)<0.001) state="zero";
+        else if(Number.isFinite(currentInterval.hours) && Math.abs(n-currentInterval.hours)<=0.08) state="full";
+        else state="partial";
+      }
+    }
+    setStateUI(prefix,state,false);
+    const s=$(prefix+"_state");
+    if(s) s.dataset.touched="1";
+    if(state==="partial" && $(prefix+"_h")) $(prefix+"_h").value=raw;
+  }
+
   window.scrollTo({top:0,behavior:"smooth"});
 }
 
@@ -416,8 +588,19 @@ async function exportRangeCSV(){
 async function exportJSON(){
   const rows=await getAllRecords();
   rows.sort((a,b)=>a._id-b._id);
-  download(JSON.stringify({version:1,exportedAt:new Date().toISOString(),headers:HEADERS,records:rows},null,2),
-           `PoolLog_Backup_${localDateString()}.json`,"application/json");
+  const masterData=await getSetting("masterData");
+  download(
+    JSON.stringify({
+      version:2,
+      appVersion:APP_VERSION,
+      exportedAt:new Date().toISOString(),
+      headers:HEADERS,
+      masterData:masterData || null,
+      records:rows
+    },null,2),
+    `PoolLog_Backup_${localDateString()}.json`,
+    "application/json"
+  );
 }
 
 function download(content,filename,type){
@@ -477,13 +660,23 @@ async function restoreJSON(file){
   const obj=JSON.parse(await file.text());
   if(!obj || !Array.isArray(obj.records)) throw new Error("Ungültiges Backup.");
   if(!confirm(`Aktuellen Bestand ersetzen durch ${obj.records.length} Datensätze aus dem Backup?`)) return;
+
   await clearRecords();
   const transaction=db.transaction(STORE,"readwrite");
   const store=transaction.objectStore(STORE);
   for(const old of obj.records){
-    const r={}; HEADERS.forEach(h=>r[h]=old[h]??""); store.add(r);
+    const r={};
+    HEADERS.forEach(h=>r[h]=old[h]??"");
+    store.add(r);
   }
-  await new Promise((resolve,reject)=>{transaction.oncomplete=resolve;transaction.onerror=()=>reject(transaction.error)});
+  await new Promise((resolve,reject)=>{
+    transaction.oncomplete=resolve;
+    transaction.onerror=()=>reject(transaction.error);
+  });
+
+  if(obj.masterData){
+    await setSetting("masterData",{...MASTER_DEFAULTS,...obj.masterData});
+  }
 }
 
 
@@ -515,9 +708,20 @@ form.addEventListener("submit",async e=>{
   window.scrollTo({top:0,behavior:"smooth"});
 });
 
-$("Aktion").addEventListener("change",updateActionUI);
+$("Aktion").addEventListener("change",async()=>{
+  updateActionUI();
+  if(valueOf("Aktion")==="Messung") await updateElapsedSinceMeasurement();
+});
 $("Datum").addEventListener("change",updateElapsedSinceMeasurement);
 $("Uhrzeit").addEventListener("change",updateElapsedSinceMeasurement);
+for(const [prefix] of stateIds()){
+  const select=$(prefix+"_state");
+  if(!select) continue;
+  select.addEventListener("change",()=>{
+    select.dataset.touched="1";
+    setStateUI(prefix,select.value,false);
+  });
+}
 $("fCl").addEventListener("input",()=>{ if(valueOf("fCl")!=="") $("fCl_Status").value=""; });
 $("fCl_Status").addEventListener("change",()=>{ if(valueOf("fCl_Status")!=="") $("fCl").value=""; });
 $("cancelEditBtn").addEventListener("click",setDefaults);
@@ -558,7 +762,7 @@ $("importCsvInput").addEventListener("change",async e=>{
 });
 $("importJsonInput").addEventListener("change",async e=>{
   const file=e.target.files[0]; if(!file) return;
-  try{ await restoreJSON(file); await renderLists(); toast("Backup wiederhergestellt"); }
+  try{ await restoreJSON(file); await renderLists(); await updateElapsedSinceMeasurement(); toast("Backup wiederhergestellt"); }
   catch(err){ alert(err.message); }
   e.target.value="";
 });

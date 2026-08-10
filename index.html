@@ -223,6 +223,99 @@
       <div id="allList" class="record-list"></div>
     </section>
 
+
+    <section id="masterDataView" class="view">
+      <div class="section-title">
+        <div>
+          <div class="eyebrow">PoolLog</div>
+          <h1>Stammdaten</h1>
+        </div>
+        <button id="closeMasterDataBtn" class="text-btn" type="button">Zurück</button>
+      </div>
+
+      <form id="masterDataForm" novalidate>
+        <div class="card">
+          <h2>Pool</h2>
+          <label class="field">
+            <span>Bezeichnung</span>
+            <input id="mdPoolName" type="text" autocomplete="off" placeholder="Mein Pool">
+          </label>
+          <label class="field">
+            <span>Poolvolumen <small>m³</small></span>
+            <input id="mdPoolVolume" type="number" min="0" step="0.1" inputmode="decimal" placeholder="17,5">
+          </label>
+        </div>
+
+        <div class="card">
+          <h2>Tag / Nacht</h2>
+          <p class="hint">Diese Zeiten dienen später zur automatischen Einordnung von Messintervallen.</p>
+          <div class="two-col">
+            <label class="field">
+              <span>Tag beginnt</span>
+              <input id="mdDayStart" type="time">
+            </label>
+            <label class="field">
+              <span>Nacht beginnt</span>
+              <input id="mdNightStart" type="time">
+            </label>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Intervall-Standards</h2>
+          <p class="hint">Diese Werte werden später nur als Vorschläge verwendet. „Nicht erfasst“ bleibt leer, „0 Stunden“ ist eine bewusste Angabe.</p>
+
+          <h3 class="subhead">Nacht</h3>
+          <label class="field"><span>Dach offen</span><select id="mdNightRoof">
+            <option value="">Nicht erfasst / kein Standard</option>
+            <option value="zero">Standard: 0 Stunden</option>
+            <option value="full">Standard: gesamtes Intervall</option>
+          </select></label>
+          <label class="field"><span>Badebetrieb</span><select id="mdNightBath">
+            <option value="">Nicht erfasst / kein Standard</option>
+            <option value="zero">Standard: 0 Stunden</option>
+            <option value="full">Standard: gesamtes Intervall</option>
+          </select></label>
+          <label class="field"><span>Pumpe</span><select id="mdNightPump">
+            <option value="">Nicht erfasst / kein Standard</option>
+            <option value="zero">Standard: 0 Stunden</option>
+            <option value="full">Standard: gesamtes Intervall</option>
+          </select></label>
+          <label class="field"><span>Chlorschwimmer</span><select id="mdNightFloat">
+            <option value="">Nicht erfasst / kein Standard</option>
+            <option value="zero">Standard: 0 Stunden</option>
+            <option value="full">Standard: gesamtes Intervall</option>
+          </select></label>
+
+          <h3 class="subhead">Tag</h3>
+          <label class="field"><span>Dach offen</span><select id="mdDayRoof">
+            <option value="">Nicht erfasst / kein Standard</option>
+            <option value="zero">Standard: 0 Stunden</option>
+            <option value="full">Standard: gesamtes Intervall</option>
+          </select></label>
+          <label class="field"><span>Badebetrieb</span><select id="mdDayBath">
+            <option value="">Nicht erfasst / kein Standard</option>
+            <option value="zero">Standard: 0 Stunden</option>
+            <option value="full">Standard: gesamtes Intervall</option>
+          </select></label>
+          <label class="field"><span>Pumpe</span><select id="mdDayPump">
+            <option value="">Nicht erfasst / kein Standard</option>
+            <option value="zero">Standard: 0 Stunden</option>
+            <option value="full">Standard: gesamtes Intervall</option>
+          </select></label>
+          <label class="field"><span>Chlorschwimmer</span><select id="mdDayFloat">
+            <option value="">Nicht erfasst / kein Standard</option>
+            <option value="zero">Standard: 0 Stunden</option>
+            <option value="full">Standard: gesamtes Intervall</option>
+          </select></label>
+        </div>
+
+        <div class="sticky-actions">
+          <button class="primary" type="submit">Stammdaten speichern</button>
+        </div>
+      </form>
+    </section>
+
     <section id="menuView" class="view">
       <div class="section-title">
         <div>
@@ -233,6 +326,10 @@
       </div>
 
       <div class="card menu-card">
+        <button id="masterDataBtn" class="menu-action" type="button">
+          <strong>Stammdaten</strong>
+          <span>Pool, Tag/Nacht-Zeiten und Intervall-Standards</span>
+        </button>
         <button id="exportCsvBtn" class="menu-action" type="button">
           <strong>Gesamte CSV exportieren</strong>
           <span>Alle Rohdaten, 21 Spalten, Semikolon-getrennt</span>
@@ -278,7 +375,7 @@
 
       <div class="app-info">
         <span>PoolLog</span>
-        <strong id="appVersion">Version 1.4</strong>
+        <strong id="appVersion">Version 1.5</strong>
       </div>
     </section>
   </main>

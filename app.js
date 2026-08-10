@@ -1,10 +1,11 @@
 
-const APP_VERSION = "1.4";
+const APP_VERSION = "1.5";
 const HEADERS = ["Kürzel", "Datum", "Uhrzeit", "Aktion", "Reinigungsart", "Wasserlinie", "Wassertemperatur", "Außentemperatur", "Innendach", "fCl", "fCl_Status", "CYA", "TA", "pH", "Wasseroptik", "Dach_Offen_h", "Badebetrieb_h", "Chlorschwimmer_h", "Pumpe_h", "CHC_g", "Notiz"];
 const SEED_DATA = [];
 const DB_NAME = "PoolLogDB";
 const STORE = "records";
-const DB_VERSION = 1;
+const SETTINGS_STORE = "settings";
+const DB_VERSION = 2;
 let db;
 let editingId = null;
 
@@ -98,6 +99,9 @@ function openDB(){
         const store=database.createObjectStore(STORE,{keyPath:"_id",autoIncrement:true});
         store.createIndex("date","Datum",{unique:false});
       }
+      if(!database.objectStoreNames.contains(SETTINGS_STORE)){
+        database.createObjectStore(SETTINGS_STORE,{keyPath:"key"});
+      }
     };
     req.onsuccess=e=>resolve(e.target.result);
     req.onerror=e=>reject(e.target.error);
@@ -141,6 +145,74 @@ function getRecord(id){
   return new Promise((resolve,reject)=>{
     const r=tx().get(id); r.onsuccess=()=>resolve(r.result); r.onerror=()=>reject(r.error);
   });
+}
+
+function settingsTx(mode="readonly"){
+  return db.transaction(SETTINGS_STORE,mode).objectStore(SETTINGS_STORE);
+}
+function getSetting(key){
+  return new Promise((resolve,reject)=>{
+    const r=settingsTx().get(key);
+    r.onsuccess=()=>resolve(r.result ? r.result.value : null);
+    r.onerror=()=>reject(r.error);
+  });
+}
+function setSetting(key,value){
+  return new Promise((resolve,reject)=>{
+    const r=settingsTx("readwrite").put({key,value});
+    r.onsuccess=()=>resolve();
+    r.onerror=()=>reject(r.error);
+  });
+}
+
+const MASTER_DEFAULTS = {
+  poolName:"Mein Pool",
+  poolVolume:"17.5",
+  dayStart:"07:00",
+  nightStart:"21:00",
+  nightRoof:"zero",
+  nightBath:"zero",
+  nightPump:"",
+  nightFloat:"",
+  dayRoof:"",
+  dayBath:"",
+  dayPump:"",
+  dayFloat:""
+};
+
+async function loadMasterData(){
+  const saved=await getSetting("masterData");
+  const md={...MASTER_DEFAULTS,...(saved||{})};
+  $("mdPoolName").value=md.poolName ?? "";
+  $("mdPoolVolume").value=md.poolVolume ?? "";
+  $("mdDayStart").value=md.dayStart ?? "";
+  $("mdNightStart").value=md.nightStart ?? "";
+  $("mdNightRoof").value=md.nightRoof ?? "";
+  $("mdNightBath").value=md.nightBath ?? "";
+  $("mdNightPump").value=md.nightPump ?? "";
+  $("mdNightFloat").value=md.nightFloat ?? "";
+  $("mdDayRoof").value=md.dayRoof ?? "";
+  $("mdDayBath").value=md.dayBath ?? "";
+  $("mdDayPump").value=md.dayPump ?? "";
+  $("mdDayFloat").value=md.dayFloat ?? "";
+}
+
+async function saveMasterData(){
+  const md={
+    poolName:valueOf("mdPoolName"),
+    poolVolume:valueOf("mdPoolVolume").replace(",","."),
+    dayStart:valueOf("mdDayStart"),
+    nightStart:valueOf("mdNightStart"),
+    nightRoof:valueOf("mdNightRoof"),
+    nightBath:valueOf("mdNightBath"),
+    nightPump:valueOf("mdNightPump"),
+    nightFloat:valueOf("mdNightFloat"),
+    dayRoof:valueOf("mdDayRoof"),
+    dayBath:valueOf("mdDayBath"),
+    dayPump:valueOf("mdDayPump"),
+    dayFloat:valueOf("mdDayFloat")
+  };
+  await setSetting("masterData",md);
 }
 
 async function seedIfEmpty(){
@@ -452,6 +524,24 @@ $("cancelEditBtn").addEventListener("click",setDefaults);
 $("showDataBtn").addEventListener("click",()=>switchView("dataView"));
 $("backBtn").addEventListener("click",()=>switchView("entryView"));
 $("menuBtn").addEventListener("click",()=>switchView("menuView"));
+$("masterDataBtn").addEventListener("click",async()=>{
+  await loadMasterData();
+  switchView("masterDataView");
+});
+$("closeMasterDataBtn").addEventListener("click",()=>switchView("menuView"));
+$("masterDataForm").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const day=valueOf("mdDayStart");
+  const night=valueOf("mdNightStart");
+  if(!day || !night){ toast("Tag- und Nachtbeginn bitte festlegen."); return; }
+  if(day===night){ toast("Tag- und Nachtbeginn dürfen nicht identisch sein."); return; }
+  const vol=valueOf("mdPoolVolume").replace(",",".");
+  if(vol!=="" && (!Number.isFinite(Number(vol)) || Number(vol)<=0)){
+    toast("Poolvolumen bitte prüfen."); return;
+  }
+  await saveMasterData();
+  toast("Stammdaten gespeichert");
+});
 $("closeMenuBtn").addEventListener("click",()=>switchView("entryView"));
 $("searchInput").addEventListener("input",()=>renderAllList());
 $("exportCsvBtn").addEventListener("click",exportCSV);
@@ -477,6 +567,9 @@ $("importJsonInput").addEventListener("change",async e=>{
   db=await openDB();
   $("appVersion").textContent="Version "+APP_VERSION;
   await seedIfEmpty();
+  if(await getSetting("masterData")===null){
+    await setSetting("masterData",MASTER_DEFAULTS);
+  }
   setDefaults();
   $("exportFrom").value=localDateString();
   $("exportTo").value=localDateString();

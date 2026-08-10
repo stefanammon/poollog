@@ -14,3 +14,17 @@ Danach unter Settings → Pages → Deploy from a branch → main / (root) aktiv
 ## Datensicherung
 
 Regelmäßig CSV oder JSON-Backup aus der App exportieren.
+
+
+## V1.3
+- CSV-Export für frei wählbaren inklusiven Datumsbereich
+- Anzeige der vergangenen Zeit seit der vorherigen gespeicherten Messung als Eingabehilfe
+
+
+## V1.5
+- Stammdaten-Seite
+- Poolbezeichnung und Poolvolumen
+- frei definierbarer Beginn von Tag und Nacht
+- getrennte Tag-/Nacht-Standards für Dach offen, Badebetrieb, Pumpe und Chlorschwimmer
+- Standards unterscheiden bewusst zwischen „nicht erfasst“, 0 Stunden und gesamtem Intervall
+- Messdatenstruktur bleibt unverändert

@@ -1,7 +1,7 @@
 {
-  "name": "PoolLog",
-  "short_name": "PoolLog",
-  "description": "Mobile Erfassung und Speicherung von Pool-Rohdaten",
+  "name": "FreePoolLog4U Mini",
+  "short_name": "FreePoolLog4U",
+  "description": "Mobile Erfassung und zentrale Speicherung strukturierter Pooldaten",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

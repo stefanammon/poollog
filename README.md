@@ -1,40 +1,33 @@
-# PoolLog
+# FreePoolLog4U Mini 1.0 Beta 1
 
-Mobile PWA zur Erfassung strukturierter Pool-Rohdaten.
+Pilotversion für eine kleine externe Testergruppe.
 
-Die öffentliche App enthält keine historischen Pooldaten. Bestehende Daten werden nach der
-Installation lokal über „CSV importieren“ eingelesen und anschließend im Browser des Geräts
-(IndexedDB) gespeichert.
+## Datenhaltung
 
-## GitHub Pages
+- Supabase Auth für E-Mail/Passwort
+- `pools` als poolspezifische Stammdaten
+- `events` als zentraler Masterbestand
+- Row Level Security trennt Benutzerbestände
+- IndexedDB wird in dieser Version nicht mehr als Masterbestand verwendet
 
-Die Dateien dieses Ordners kommen direkt in das Root-Verzeichnis des GitHub-Repositories.
-Danach unter Settings → Pages → Deploy from a branch → main / (root) aktivieren.
+## Sicherung
 
-## Datensicherung
+- CSV: reiner Rohdatenexport der 21 Ereignisspalten
+- JSON: Ereignisse plus Pool-Stammdaten
+- Import/Wiederherstellung sind in Beta 1 bewusst nicht in der normalen UI verfügbar
 
-Regelmäßig CSV oder JSON-Backup aus der App exportieren.
+## Beta 1
 
+- Login, Registrierung, Passwort-Reset und Logout
+- Erstanlage eines Pools nach Registrierung
+- zentrale Ereignisse auf PC und Smartphone
+- zentrale Stammdaten
+- bestehende Mess-/Intervalllogik erhalten
+- sichtbarer Produktname und Versionsnummer auf der Startseite
+- neue PWA-Cache-Version
 
-## V1.3
-- CSV-Export für frei wählbaren inklusiven Datumsbereich
-- Anzeige der vergangenen Zeit seit der vorherigen gespeicherten Messung als Eingabehilfe
+## Noch nicht enthalten
 
-
-## V1.5
-- Stammdaten-Seite
-- Poolbezeichnung und Poolvolumen
-- frei definierbarer Beginn von Tag und Nacht
-- getrennte Tag-/Nacht-Standards für Dach offen, Badebetrieb, Pumpe und Chlorschwimmer
-- Standards unterscheiden bewusst zwischen „nicht erfasst“, 0 Stunden und gesamtem Intervall
-- Messdatenstruktur bleibt unverändert
-
-
-## V1.6
-- automatische Intervallklassifikation: Tag / Nacht / Gemischt
-- Tag/Nacht basiert auf Stammdaten und Zeitanteilen des Intervalls, nicht nur auf Uhrzeit der aktuellen Messung
-- sehr lange Intervalle (ab 20 h) werden bewusst als „Gemischt“ behandelt
-- zustandsorientierte Eingabe für Dach, Badebetrieb, Pumpe und Chlorschwimmer
-- Stammdaten liefern nur Vorschläge; aus Zuständen entstehen weiterhin ausschließlich die bestehenden *_h-Rohwerte
-- JSON-Backup enthält jetzt zusätzlich die Stammdaten und stellt sie wieder her
-- CSV bleibt unverändert reiner Rohdatenexport
+- Mehrpool-Auswahl in der UI
+- Offline-Synchronisierung
+- Pro-Funktionen, Subscription, KI, Wissen, Empfehlungen, Fotos

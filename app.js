@@ -1,13 +1,17 @@
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
-const APP_VERSION = "1.6.1";
+const APP_VERSION = "1.0.0-beta.1";
+const APP_LABEL = "FreePoolLog4U Mini";
+const SUPABASE_URL = "https://yxuobeqkxewznneqcpbz.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_77QwPv7tJrTenyrHGZHjWg_2UTuzVgk";
+const SITE_URL = "https://stefanammon.github.io/poollog/";
 const HEADERS = ["Kürzel", "Datum", "Uhrzeit", "Aktion", "Reinigungsart", "Wasserlinie", "Wassertemperatur", "Außentemperatur", "Innendach", "fCl", "fCl_Status", "CYA", "TA", "pH", "Wasseroptik", "Dach_Offen_h", "Badebetrieb_h", "Chlorschwimmer_h", "Pumpe_h", "CHC_g", "Notiz"];
-const SEED_DATA = [];
-const DB_NAME = "PoolLogDB";
-const STORE = "records";
-const SETTINGS_STORE = "settings";
-const DB_VERSION = 2;
-let db;
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+let currentUser = null;
+let currentPool = null;
 let editingId = null;
+let authBusy = false;
 
 const $ = id => document.getElementById(id);
 const form = $("entryForm");
@@ -143,8 +147,8 @@ function intervalValueFromState(prefix){
 }
 
 async function getMasterData(){
-  const saved=await getSetting("masterData");
-  return {...MASTER_DEFAULTS,...(saved||{})};
+  if(!currentPool) return {...MASTER_DEFAULTS};
+  return poolToMasterData(currentPool);
 }
 
 async function applyIntervalDefaults(force=false){
@@ -178,7 +182,7 @@ async function updateElapsedSinceMeasurement(){
   const target=$("elapsedSinceMeasurement");
   const badge=$("intervalTypeBadge");
   const context=$("intervalContextText");
-  if(!target || !db) return;
+  if(!target || !currentPool) return;
 
   const current=parseLocalDateTime(valueOf("Datum"),valueOf("Uhrzeit"));
   if(!current){
@@ -243,88 +247,13 @@ async function updateElapsedSinceMeasurement(){
   await applyIntervalDefaults(false);
 }
 
-function openDB(){
-  return new Promise((resolve,reject)=>{
-    const req=indexedDB.open(DB_NAME,DB_VERSION);
-    req.onupgradeneeded=e=>{
-      const database=e.target.result;
-      if(!database.objectStoreNames.contains(STORE)){
-        const store=database.createObjectStore(STORE,{keyPath:"_id",autoIncrement:true});
-        store.createIndex("date","Datum",{unique:false});
-      }
-      if(!database.objectStoreNames.contains(SETTINGS_STORE)){
-        database.createObjectStore(SETTINGS_STORE,{keyPath:"key"});
-      }
-    };
-    req.onsuccess=e=>resolve(e.target.result);
-    req.onerror=e=>reject(e.target.error);
-  });
-}
-
-function tx(mode="readonly"){ return db.transaction(STORE,mode).objectStore(STORE); }
-
-function countRecords(){
-  return new Promise((resolve,reject)=>{
-    const r=tx().count(); r.onsuccess=()=>resolve(r.result); r.onerror=()=>reject(r.error);
-  });
-}
-
-function addRecord(record){
-  return new Promise((resolve,reject)=>{
-    const r=tx("readwrite").add(record); r.onsuccess=()=>resolve(r.result); r.onerror=()=>reject(r.error);
-  });
-}
-function putRecord(record){
-  return new Promise((resolve,reject)=>{
-    const r=tx("readwrite").put(record); r.onsuccess=()=>resolve(r.result); r.onerror=()=>reject(r.error);
-  });
-}
-function deleteRecord(id){
-  return new Promise((resolve,reject)=>{
-    const r=tx("readwrite").delete(id); r.onsuccess=()=>resolve(); r.onerror=()=>reject(r.error);
-  });
-}
-function clearRecords(){
-  return new Promise((resolve,reject)=>{
-    const r=tx("readwrite").clear(); r.onsuccess=()=>resolve(); r.onerror=()=>reject(r.error);
-  });
-}
-function getAllRecords(){
-  return new Promise((resolve,reject)=>{
-    const r=tx().getAll(); r.onsuccess=()=>resolve(r.result); r.onerror=()=>reject(r.error);
-  });
-}
-function getRecord(id){
-  return new Promise((resolve,reject)=>{
-    const r=tx().get(id); r.onsuccess=()=>resolve(r.result); r.onerror=()=>reject(r.error);
-  });
-}
-
-function settingsTx(mode="readonly"){
-  return db.transaction(SETTINGS_STORE,mode).objectStore(SETTINGS_STORE);
-}
-function getSetting(key){
-  return new Promise((resolve,reject)=>{
-    const r=settingsTx().get(key);
-    r.onsuccess=()=>resolve(r.result ? r.result.value : null);
-    r.onerror=()=>reject(r.error);
-  });
-}
-function setSetting(key,value){
-  return new Promise((resolve,reject)=>{
-    const r=settingsTx("readwrite").put({key,value});
-    r.onsuccess=()=>resolve();
-    r.onerror=()=>reject(r.error);
-  });
-}
-
 const MASTER_DEFAULTS = {
   poolName:"Mein Pool",
-  poolVolume:"17.5",
+  poolVolume:"",
   dayStart:"07:00",
   nightStart:"21:00",
-  nightRoof:"zero",
-  nightBath:"zero",
+  nightRoof:"",
+  nightBath:"",
   nightPump:"",
   nightFloat:"",
   dayRoof:"",
@@ -333,9 +262,163 @@ const MASTER_DEFAULTS = {
   dayFloat:""
 };
 
+function trimTime(value){
+  const s=String(value??"");
+  return s ? s.slice(0,5) : "";
+}
+
+function dbText(value){
+  return value===null || value===undefined ? "" : String(value);
+}
+
+function dbNumberText(value){
+  return value===null || value===undefined ? "" : String(value);
+}
+
+function nullableText(value){
+  const s=String(value??"").trim();
+  return s==="" ? null : s;
+}
+
+function nullableNumber(value){
+  const s=String(value??"").trim().replaceAll("−","-").replace(",",".");
+  if(s==="") return null;
+  const n=Number(s);
+  return Number.isFinite(n) ? n : null;
+}
+
+function eventFromDb(row){
+  return {
+    _id:row.id,
+    _legacy_local_id:row.legacy_local_id,
+    _created_at:row.created_at,
+    "Kürzel":dbText(row.actor_code),
+    "Datum":dbText(row.event_date),
+    "Uhrzeit":trimTime(row.event_time),
+    "Aktion":dbText(row.action),
+    "Reinigungsart":dbText(row.cleaning_type),
+    "Wasserlinie":dbNumberText(row.waterline_mm),
+    "Wassertemperatur":dbNumberText(row.water_temp_c),
+    "Außentemperatur":dbNumberText(row.air_temp_c),
+    "Innendach":dbText(row.inner_roof),
+    "fCl":dbNumberText(row.free_chlorine_mg_l),
+    "fCl_Status":dbText(row.free_chlorine_status),
+    "CYA":dbNumberText(row.cya_mg_l),
+    "TA":dbNumberText(row.ta_mg_l),
+    "pH":dbNumberText(row.ph),
+    "Wasseroptik":dbText(row.water_appearance),
+    "Dach_Offen_h":dbNumberText(row.roof_open_h),
+    "Badebetrieb_h":dbNumberText(row.bathing_h),
+    "Chlorschwimmer_h":dbNumberText(row.chlorine_float_h),
+    "Pumpe_h":dbNumberText(row.pump_h),
+    "CHC_g":dbNumberText(row.chc_g),
+    "Notiz":dbText(row.note)
+  };
+}
+
+function eventToDb(record){
+  return {
+    pool_id:currentPool.id,
+    actor_code:nullableText(record["Kürzel"]),
+    event_date:record["Datum"],
+    event_time:nullableText(record["Uhrzeit"]),
+    action:record["Aktion"],
+    cleaning_type:nullableText(record["Reinigungsart"]),
+    waterline_mm:nullableNumber(record["Wasserlinie"]),
+    water_temp_c:nullableNumber(record["Wassertemperatur"]),
+    air_temp_c:nullableNumber(record["Außentemperatur"]),
+    inner_roof:nullableText(record["Innendach"]),
+    free_chlorine_mg_l:nullableNumber(record["fCl"]),
+    free_chlorine_status:nullableText(record["fCl_Status"]),
+    cya_mg_l:nullableNumber(record["CYA"]),
+    ta_mg_l:nullableNumber(record["TA"]),
+    ph:nullableNumber(record["pH"]),
+    water_appearance:nullableText(record["Wasseroptik"]),
+    roof_open_h:nullableNumber(record["Dach_Offen_h"]),
+    bathing_h:nullableNumber(record["Badebetrieb_h"]),
+    chlorine_float_h:nullableNumber(record["Chlorschwimmer_h"]),
+    pump_h:nullableNumber(record["Pumpe_h"]),
+    chc_g:nullableNumber(record["CHC_g"]),
+    note:nullableText(record["Notiz"])
+  };
+}
+
+function poolToMasterData(pool){
+  return {
+    poolName:pool.name ?? "Mein Pool",
+    poolVolume:pool.volume_m3===null || pool.volume_m3===undefined ? "" : String(pool.volume_m3),
+    dayStart:trimTime(pool.day_start) || "07:00",
+    nightStart:trimTime(pool.night_start) || "21:00",
+    nightRoof:pool.night_roof_default ?? "",
+    nightBath:pool.night_bath_default ?? "",
+    nightPump:pool.night_pump_default ?? "",
+    nightFloat:pool.night_float_default ?? "",
+    dayRoof:pool.day_roof_default ?? "",
+    dayBath:pool.day_bath_default ?? "",
+    dayPump:pool.day_pump_default ?? "",
+    dayFloat:pool.day_float_default ?? ""
+  };
+}
+
+async function getAllRecords(){
+  if(!currentPool) return [];
+  const rows=[];
+  const pageSize=1000;
+  for(let from=0;;from+=pageSize){
+    const {data,error}=await supabase
+      .from("events")
+      .select("*")
+      .eq("pool_id",currentPool.id)
+      .range(from,from+pageSize-1);
+    if(error) throw error;
+    rows.push(...(data||[]));
+    if(!data || data.length<pageSize) break;
+  }
+  return rows.map(eventFromDb);
+}
+
+async function getRecord(id){
+  const {data,error}=await supabase
+    .from("events")
+    .select("*")
+    .eq("id",id)
+    .eq("pool_id",currentPool.id)
+    .maybeSingle();
+  if(error) throw error;
+  return data ? eventFromDb(data) : null;
+}
+
+async function addRecord(record){
+  const {data,error}=await supabase
+    .from("events")
+    .insert(eventToDb(record))
+    .select("id")
+    .single();
+  if(error) throw error;
+  return data.id;
+}
+
+async function putRecord(record){
+  const payload=eventToDb(record);
+  const {error}=await supabase
+    .from("events")
+    .update(payload)
+    .eq("id",record._id)
+    .eq("pool_id",currentPool.id);
+  if(error) throw error;
+}
+
+async function deleteRecord(id){
+  const {error}=await supabase
+    .from("events")
+    .delete()
+    .eq("id",id)
+    .eq("pool_id",currentPool.id);
+  if(error) throw error;
+}
+
 async function loadMasterData(){
-  const saved=await getSetting("masterData");
-  const md={...MASTER_DEFAULTS,...(saved||{})};
+  const md=await getMasterData();
   $("mdPoolName").value=md.poolName ?? "";
   $("mdPoolVolume").value=md.poolVolume ?? "";
   $("mdDayStart").value=md.dayStart ?? "";
@@ -351,37 +434,52 @@ async function loadMasterData(){
 }
 
 async function saveMasterData(){
-  const md={
-    poolName:valueOf("mdPoolName"),
-    poolVolume:valueOf("mdPoolVolume").replace(",","."),
-    dayStart:valueOf("mdDayStart"),
-    nightStart:valueOf("mdNightStart"),
-    nightRoof:valueOf("mdNightRoof"),
-    nightBath:valueOf("mdNightBath"),
-    nightPump:valueOf("mdNightPump"),
-    nightFloat:valueOf("mdNightFloat"),
-    dayRoof:valueOf("mdDayRoof"),
-    dayBath:valueOf("mdDayBath"),
-    dayPump:valueOf("mdDayPump"),
-    dayFloat:valueOf("mdDayFloat")
+  if(!currentPool) throw new Error("Kein Pool ausgewählt.");
+  const payload={
+    name:valueOf("mdPoolName"),
+    volume_m3:nullableNumber(valueOf("mdPoolVolume")),
+    day_start:valueOf("mdDayStart"),
+    night_start:valueOf("mdNightStart"),
+    night_roof_default:nullableText(valueOf("mdNightRoof")),
+    night_bath_default:nullableText(valueOf("mdNightBath")),
+    night_pump_default:nullableText(valueOf("mdNightPump")),
+    night_float_default:nullableText(valueOf("mdNightFloat")),
+    day_roof_default:nullableText(valueOf("mdDayRoof")),
+    day_bath_default:nullableText(valueOf("mdDayBath")),
+    day_pump_default:nullableText(valueOf("mdDayPump")),
+    day_float_default:nullableText(valueOf("mdDayFloat"))
   };
-  await setSetting("masterData",md);
+  const {data,error}=await supabase
+    .from("pools")
+    .update(payload)
+    .eq("id",currentPool.id)
+    .select("*")
+    .single();
+  if(error) throw error;
+  currentPool=data;
+  updatePoolIdentity();
 }
 
-async function seedIfEmpty(){
-  if(await countRecords()!==0) return;
-  const transaction=db.transaction(STORE,"readwrite");
-  const store=transaction.objectStore(STORE);
-  for(const row of SEED_DATA) store.add(row);
-  await new Promise((resolve,reject)=>{
-    transaction.oncomplete=resolve; transaction.onerror=()=>reject(transaction.error);
-  });
+function compareRecordsAsc(a,b){
+  const ad=`${a.Datum||""}T${a.Uhrzeit||"00:00"}`;
+  const bd=`${b.Datum||""}T${b.Uhrzeit||"00:00"}`;
+  if(ad!==bd) return ad.localeCompare(bd);
+  const al=Number(a._legacy_local_id ?? 0), bl=Number(b._legacy_local_id ?? 0);
+  if(al!==bl) return al-bl;
+  return String(a._created_at||"").localeCompare(String(b._created_at||""));
+}
+
+function compareRecordsDesc(a,b){ return compareRecordsAsc(b,a); }
+
+function updatePoolIdentity(){
+  if($("currentPoolName")) $("currentPoolName").textContent=currentPool?.name || "";
+  if($("currentUserEmail")) $("currentUserEmail").textContent=currentUser?.email || "";
 }
 
 function setDefaults(){
   form.reset();
   $("Aktion").value="Messung";
-  $("Kürzel").value="sam";
+  $("Kürzel").value=localStorage.getItem("poollog_actor_code") || "";
   $("Datum").value=localDateString();
   $("Uhrzeit").value=localTimeString();
   editingId=null;
@@ -496,7 +594,7 @@ function recordCard(r){
 
 async function renderLists(){
   let rows=await getAllRecords();
-  rows.sort((a,b)=>b._id-a._id);
+  rows.sort(compareRecordsDesc);
   $("recentList").replaceChildren(...rows.slice(0,7).map(recordCard));
   $("recordCount").textContent=rows.length.toLocaleString("de-DE");
   renderAllList(rows);
@@ -505,12 +603,12 @@ async function renderLists(){
 function renderAllList(rowsOverride=null){
   const render = async()=>{
     let rows=rowsOverride || await getAllRecords();
-    rows.sort((a,b)=>b._id-a._id);
+    rows.sort(compareRecordsDesc);
     const q=valueOf("searchInput").toLowerCase();
     if(q) rows=rows.filter(r=>HEADERS.some(h=>String(r[h]??"").toLowerCase().includes(q)));
     $("allList").replaceChildren(...rows.map(recordCard));
   };
-  render();
+  render().catch(showError);
 }
 
 async function editRecord(id){
@@ -571,7 +669,7 @@ function csvEscape(value){
 }
 async function exportCSV(){
   const rows=await getAllRecords();
-  rows.sort((a,b)=>a._id-b._id);
+  rows.sort(compareRecordsAsc);
   const lines=[HEADERS.map(csvEscape).join(";")];
   for(const r of rows) lines.push(HEADERS.map(h=>csvEscape(r[h])).join(";"));
   download("\ufeff"+lines.join("\r\n"),`Pool_Masterdaten_${localDateString()}.csv`,"text/csv;charset=utf-8");
@@ -585,7 +683,7 @@ async function exportRangeCSV(){
 
   let rows=await getAllRecords();
   rows=rows.filter(r=>r.Datum && r.Datum>=from && r.Datum<=to);
-  rows.sort((a,b)=>a._id-b._id);
+  rows.sort(compareRecordsAsc);
 
   $("rangeExportInfo").textContent=`${rows.length} Ereignis${rows.length===1?"":"se"} im gewählten Zeitraum`;
   if(!rows.length){ toast("Keine Ereignisse in diesem Zeitraum."); return; }
@@ -593,20 +691,20 @@ async function exportRangeCSV(){
   const lines=[HEADERS.map(csvEscape).join(";")];
   for(const r of rows) lines.push(HEADERS.map(h=>csvEscape(r[h])).join(";"));
   const suffix=from===to ? from : `${from}_bis_${to}`;
-  download("\\ufeff"+lines.join("\\r\\n"),`Pool_Masterdaten_${suffix}.csv`,"text/csv;charset=utf-8");
+  download("\ufeff"+lines.join("\r\n"),`Pool_Masterdaten_${suffix}.csv`,"text/csv;charset=utf-8");
 }
 
 async function exportJSON(){
   const rows=await getAllRecords();
-  rows.sort((a,b)=>a._id-b._id);
-  const masterData=await getSetting("masterData");
+  rows.sort(compareRecordsAsc);
+  const masterData=await getMasterData();
   download(
     JSON.stringify({
       version:2,
       appVersion:APP_VERSION,
       exportedAt:new Date().toISOString(),
       headers:HEADERS,
-      masterData:masterData || null,
+      masterData,
       records:rows
     },null,2),
     `PoolLog_Backup_${localDateString()}.json`,
@@ -623,7 +721,7 @@ function download(content,filename,type){
 
 async function updateRangeExportInfo(){
   const info=$("rangeExportInfo");
-  if(!info || !db) return;
+  if(!info || !currentPool) return;
   const from=valueOf("exportFrom"), to=valueOf("exportTo");
   if(!from || !to){ info.textContent=""; return; }
   if(from>to){ info.textContent="Von-Datum liegt nach Bis-Datum."; return; }
@@ -631,65 +729,6 @@ async function updateRangeExportInfo(){
   const n=rows.filter(r=>r.Datum && r.Datum>=from && r.Datum<=to).length;
   info.textContent=`${n} Ereignis${n===1?"":"se"} im gewählten Zeitraum`;
 }
-
-function parseCSV(text,delimiter=";"){
-  if(text.charCodeAt(0)===0xFEFF) text=text.slice(1);
-  const rows=[]; let row=[]; let field=""; let quoted=false;
-  for(let i=0;i<text.length;i++){
-    const c=text[i];
-    if(quoted){
-      if(c==='"' && text[i+1]==='"'){ field+='"'; i++; }
-      else if(c==='"') quoted=false;
-      else field+=c;
-    } else {
-      if(c==='"') quoted=true;
-      else if(c===delimiter){ row.push(field); field=""; }
-      else if(c==="\n"){ row.push(field.replace(/\r$/,"")); rows.push(row); row=[]; field=""; }
-      else field+=c;
-    }
-  }
-  if(field!=="" || row.length){ row.push(field.replace(/\r$/,"")); rows.push(row); }
-  return rows;
-}
-
-async function importCSV(file){
-  const text=await file.text();
-  const parsed=parseCSV(text);
-  if(parsed.length<2) throw new Error("CSV enthält keine Datensätze.");
-  const hdr=parsed[0];
-  if(HEADERS.some((h,i)=>hdr[i]!==h)) throw new Error("CSV-Kopfzeile entspricht nicht der Pooldaten-Struktur.");
-  const transaction=db.transaction(STORE,"readwrite");
-  const store=transaction.objectStore(STORE);
-  for(const cells of parsed.slice(1)){
-    if(cells.every(v=>v==="")) continue;
-    const r={}; HEADERS.forEach((h,i)=>r[h]=cells[i]??""); store.add(r);
-  }
-  await new Promise((resolve,reject)=>{transaction.oncomplete=resolve;transaction.onerror=()=>reject(transaction.error)});
-}
-
-async function restoreJSON(file){
-  const obj=JSON.parse(await file.text());
-  if(!obj || !Array.isArray(obj.records)) throw new Error("Ungültiges Backup.");
-  if(!confirm(`Aktuellen Bestand ersetzen durch ${obj.records.length} Datensätze aus dem Backup?`)) return;
-
-  await clearRecords();
-  const transaction=db.transaction(STORE,"readwrite");
-  const store=transaction.objectStore(STORE);
-  for(const old of obj.records){
-    const r={};
-    HEADERS.forEach(h=>r[h]=old[h]??"");
-    store.add(r);
-  }
-  await new Promise((resolve,reject)=>{
-    transaction.oncomplete=resolve;
-    transaction.onerror=()=>reject(transaction.error);
-  });
-
-  if(obj.masterData){
-    await setSetting("masterData",{...MASTER_DEFAULTS,...obj.masterData});
-  }
-}
-
 
 document.querySelectorAll(".step-btn").forEach(btn=>{
   btn.addEventListener("click",()=>{
@@ -713,10 +752,13 @@ form.addEventListener("submit",async e=>{
   const rec=buildRecord();
   const err=validateRecord(rec);
   if(err){ toast(err); return; }
-  if(editingId===null) await addRecord(rec); else await putRecord(rec);
-  const msg=editingId===null ? "Gespeichert" : "Änderung gespeichert";
-  setDefaults(); await renderLists(); toast(msg);
-  window.scrollTo({top:0,behavior:"smooth"});
+  try{
+    if(rec.Kürzel) localStorage.setItem("poollog_actor_code",rec.Kürzel);
+    if(editingId===null) await addRecord(rec); else await putRecord(rec);
+    const msg=editingId===null ? "Zentral gespeichert" : "Änderung zentral gespeichert";
+    setDefaults(); await renderLists(); toast(msg);
+    window.scrollTo({top:0,behavior:"smooth"});
+  }catch(err){ showError(err); }
 });
 
 $("Aktion").addEventListener("change",async()=>{
@@ -754,8 +796,10 @@ $("masterDataForm").addEventListener("submit",async e=>{
   if(vol!=="" && (!Number.isFinite(Number(vol)) || Number(vol)<=0)){
     toast("Poolvolumen bitte prüfen."); return;
   }
-  await saveMasterData();
-  toast("Stammdaten gespeichert");
+  try{
+    await saveMasterData();
+    toast("Stammdaten zentral gespeichert");
+  }catch(err){ showError(err); }
 });
 $("closeMenuBtn").addEventListener("click",()=>switchView("entryView"));
 $("searchInput").addEventListener("input",()=>renderAllList());
@@ -765,33 +809,198 @@ $("exportFrom").addEventListener("change",updateRangeExportInfo);
 $("exportTo").addEventListener("change",updateRangeExportInfo);
 $("exportJsonBtn").addEventListener("click",exportJSON);
 
-$("importCsvInput").addEventListener("change",async e=>{
-  const file=e.target.files[0]; if(!file) return;
-  try{ await importCSV(file); await renderLists(); toast("CSV importiert"); }
-  catch(err){ alert(err.message); }
-  e.target.value="";
-});
-$("importJsonInput").addEventListener("change",async e=>{
-  const file=e.target.files[0]; if(!file) return;
-  try{ await restoreJSON(file); await renderLists(); await updateElapsedSinceMeasurement(); toast("Backup wiederhergestellt"); }
-  catch(err){ alert(err.message); }
-  e.target.value="";
-});
 
-(async()=>{
-  db=await openDB();
-  $("appVersion").textContent="Version "+APP_VERSION;
-  await seedIfEmpty();
-  if(await getSetting("masterData")===null){
-    await setSetting("masterData",MASTER_DEFAULTS);
+function showError(err){
+  console.error(err);
+  const msg=err?.message || String(err || "Unbekannter Fehler");
+  toast("Fehler: "+msg);
+}
+
+function setAuthMessage(message,isError=false){
+  const el=$("authMessage");
+  if(!el) return;
+  el.textContent=message || "";
+  el.classList.toggle("auth-error",!!isError);
+}
+
+function showAuth(){
+  currentPool=null;
+  currentUser=null;
+  $("menuBtn").classList.add("hidden");
+  $("logoutBtn").classList.add("hidden");
+  switchView("authView");
+  updateHeader("Anmelden");
+}
+
+function updateHeader(title){
+  if($("screenTitle")) $("screenTitle").textContent=title;
+  if($("appVersionTop")) $("appVersionTop").textContent=`Version ${APP_VERSION}`;
+}
+
+async function loadCurrentPool(){
+  const {data,error}=await supabase
+    .from("pools")
+    .select("*")
+    .order("created_at",{ascending:true});
+  if(error) throw error;
+  if(!data?.length){
+    currentPool=null;
+    $("menuBtn").classList.add("hidden");
+    $("logoutBtn").classList.remove("hidden");
+    switchView("onboardingView");
+    updateHeader("Pool anlegen");
+    return false;
   }
+  currentPool=data[0];
+  updatePoolIdentity();
+  return true;
+}
+
+async function startAuthenticatedApp(){
+  const ok=await loadCurrentPool();
+  if(!ok) return;
+  $("menuBtn").classList.remove("hidden");
+  $("logoutBtn").classList.remove("hidden");
+  switchView("entryView");
+  updateHeader("Neue Aktion");
   setDefaults();
   $("exportFrom").value=localDateString();
   $("exportTo").value=localDateString();
   await renderLists();
   await updateElapsedSinceMeasurement();
   await updateRangeExportInfo();
+}
+
+async function refreshSession(){
+  const {data:{session},error}=await supabase.auth.getSession();
+  if(error) throw error;
+  if(!session){ showAuth(); return; }
+  currentUser=session.user;
+  await startAuthenticatedApp();
+}
+
+async function signIn(){
+  if(authBusy) return;
+  const email=valueOf("authEmail");
+  const password=valueOf("authPassword");
+  if(!email || !password){ setAuthMessage("E-Mail und Passwort eingeben.",true); return; }
+  authBusy=true;
+  setAuthMessage("Anmeldung läuft …");
+  const {data,error}=await supabase.auth.signInWithPassword({email,password});
+  authBusy=false;
+  if(error){ setAuthMessage(error.message,true); return; }
+  currentUser=data.user;
+  setAuthMessage("");
+  await startAuthenticatedApp();
+}
+
+async function signUp(){
+  if(authBusy) return;
+  const email=valueOf("authEmail");
+  const password=valueOf("authPassword");
+  if(!email || !password){ setAuthMessage("E-Mail und Passwort eingeben.",true); return; }
+  if(password.length<8){ setAuthMessage("Bitte ein Passwort mit mindestens 8 Zeichen wählen.",true); return; }
+  authBusy=true;
+  setAuthMessage("Registrierung läuft …");
+  const {data,error}=await supabase.auth.signUp({
+    email,password,
+    options:{emailRedirectTo:SITE_URL}
+  });
+  authBusy=false;
+  if(error){ setAuthMessage(error.message,true); return; }
+  if(data.session){
+    currentUser=data.user;
+    setAuthMessage("");
+    await startAuthenticatedApp();
+  }else{
+    setAuthMessage("Registrierung angelegt. Bitte die Bestätigungs-E-Mail öffnen und anschließend hier anmelden.");
+  }
+}
+
+async function resetPassword(){
+  const email=valueOf("authEmail");
+  if(!email){ setAuthMessage("Bitte zuerst die E-Mail-Adresse eingeben.",true); return; }
+  const {error}=await supabase.auth.resetPasswordForEmail(email,{redirectTo:SITE_URL});
+  if(error){ setAuthMessage(error.message,true); return; }
+  setAuthMessage("E-Mail zum Zurücksetzen des Passworts wurde angefordert.");
+}
+
+async function updateRecoveredPassword(){
+  const password=valueOf("newPassword");
+  const msg=$("recoveryMessage");
+  if(password.length<8){
+    msg.textContent="Bitte ein Passwort mit mindestens 8 Zeichen wählen.";
+    msg.classList.add("auth-error");
+    return;
+  }
+  const {error}=await supabase.auth.updateUser({password});
+  if(error){
+    msg.textContent=error.message;
+    msg.classList.add("auth-error");
+    return;
+  }
+  msg.classList.remove("auth-error");
+  msg.textContent="Passwort geändert.";
+  setTimeout(()=>startAuthenticatedApp().catch(showError),500);
+}
+
+async function signOut(){
+  await supabase.auth.signOut();
+  showAuth();
+}
+
+async function createFirstPool(){
+  const name=valueOf("newPoolName");
+  const volume=valueOf("newPoolVolume").replace(",",".");
+  if(!name){ toast("Poolbezeichnung fehlt."); return; }
+  if(volume!=="" && (!Number.isFinite(Number(volume)) || Number(volume)<=0)){
+    toast("Poolvolumen bitte prüfen."); return;
+  }
+  const {data,error}=await supabase
+    .from("pools")
+    .insert({
+      owner_user_id:currentUser.id,
+      name,
+      volume_m3:volume==="" ? null : Number(volume),
+      day_start:"07:00",
+      night_start:"21:00"
+    })
+    .select("*")
+    .single();
+  if(error){ showError(error); return; }
+  currentPool=data;
+  await startAuthenticatedApp();
+}
+
+$("loginBtn").addEventListener("click",()=>signIn().catch(showError));
+$("registerBtn").addEventListener("click",()=>signUp().catch(showError));
+$("resetPasswordBtn").addEventListener("click",()=>resetPassword().catch(showError));
+$("updatePasswordBtn").addEventListener("click",()=>updateRecoveredPassword().catch(showError));
+$("logoutBtn").addEventListener("click",()=>signOut().catch(showError));
+$("onboardingForm").addEventListener("submit",e=>{ e.preventDefault(); createFirstPool().catch(showError); });
+
+supabase.auth.onAuthStateChange((event,session)=>{
+  if(event==="SIGNED_OUT") showAuth();
+  if(event==="PASSWORD_RECOVERY"){
+    currentUser=session?.user || currentUser;
+    $("menuBtn").classList.add("hidden");
+    $("logoutBtn").classList.remove("hidden");
+    switchView("passwordRecoveryView");
+    updateHeader("Passwort ändern");
+  }
+});
+
+(async()=>{
+  $("appNameTop").textContent=APP_LABEL;
+  $("appVersion").textContent="Version "+APP_VERSION;
+  $("appVersionTop").textContent="Version "+APP_VERSION;
+  try{
+    await refreshSession();
+  }catch(err){
+    showError(err);
+    showAuth();
+  }
   if("serviceWorker" in navigator && location.protocol!=="file:"){
-    navigator.serviceWorker.register("service-worker.js").catch(()=>{});
+    navigator.serviceWorker.register("service-worker.js").catch(console.error);
   }
 })();

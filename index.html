@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#0b5d7a">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <title>PoolLog</title>
+  <title>FreePoolLog4U Mini</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
@@ -14,14 +14,53 @@
 <body>
   <header class="topbar">
     <div>
-      <div class="eyebrow">Pooldaten</div>
-      <h1>Neue Aktion</h1>
+      <div id="appNameTop" class="eyebrow">FreePoolLog4U Mini</div>
+      <h1 id="screenTitle">Anmelden</h1>
+      <div id="appVersionTop" class="version-top">Version 1.0.0-beta.1</div>
     </div>
-    <button id="menuBtn" class="icon-btn" type="button" aria-label="Menü">☰</button>
+    <div class="top-actions">
+      <button id="logoutBtn" class="text-btn hidden" type="button">Abmelden</button>
+      <button id="menuBtn" class="icon-btn hidden" type="button" aria-label="Menü">☰</button>
+    </div>
   </header>
 
   <main>
-    <section id="entryView" class="view active">
+    <section id="authView" class="view active">
+      <div class="card auth-card">
+        <h2>FreePoolLog4U Mini</h2>
+        <p class="hint">Zentrale Pooldaten auf Smartphone und PC. Für die Beta ist ein kostenloses Benutzerkonto erforderlich.</p>
+        <label class="field"><span>E-Mail</span><input id="authEmail" type="email" autocomplete="username"></label>
+        <label class="field"><span>Passwort</span><input id="authPassword" type="password" autocomplete="current-password"></label>
+        <button id="loginBtn" class="primary full-width" type="button">Anmelden</button>
+        <button id="registerBtn" class="secondary full-width auth-secondary" type="button">Neu registrieren</button>
+        <button id="resetPasswordBtn" class="text-btn auth-reset" type="button">Passwort vergessen?</button>
+        <p id="authMessage" class="auth-message" aria-live="polite"></p>
+      </div>
+    </section>
+
+    <section id="passwordRecoveryView" class="view">
+      <div class="card auth-card">
+        <h2>Neues Passwort setzen</h2>
+        <p class="hint">Gib ein neues Passwort für Dein FreePoolLog4U-Konto ein.</p>
+        <label class="field"><span>Neues Passwort</span><input id="newPassword" type="password" autocomplete="new-password"></label>
+        <button id="updatePasswordBtn" class="primary full-width" type="button">Passwort speichern</button>
+        <p id="recoveryMessage" class="auth-message" aria-live="polite"></p>
+      </div>
+    </section>
+
+    <section id="onboardingView" class="view">
+      <form id="onboardingForm">
+        <div class="card">
+          <h2>Deinen Pool anlegen</h2>
+          <p class="hint">Diese Angaben kannst Du später unter Stammdaten ändern.</p>
+          <label class="field"><span>Poolbezeichnung</span><input id="newPoolName" type="text" required placeholder="z. B. Gartenpool"></label>
+          <label class="field"><span>Poolvolumen <small>m³</small></span><input id="newPoolVolume" type="number" min="0" step="0.1" inputmode="decimal" placeholder="z. B. 17,5"></label>
+        </div>
+        <div class="sticky-actions"><button class="primary" type="submit">Pool anlegen</button></div>
+      </form>
+    </section>
+
+    <section id="entryView" class="view">
       <form id="entryForm" novalidate>
         <div class="card compact">
           <label class="field">
@@ -46,9 +85,7 @@
           </div>
           <label class="field">
             <span>Kürzel</span>
-            <select id="Kürzel" name="Kürzel">
-              <option>sam</option>
-            </select>
+            <input id="Kürzel" name="Kürzel" type="text" maxlength="20" autocomplete="off" placeholder="z. B. sam">
           </label>
         </div>
 
@@ -408,33 +445,24 @@
           <strong>Backup exportieren</strong>
           <span>Vollständige lokale Sicherung als JSON</span>
         </button>
-        <label class="menu-action file-action">
-          <strong>CSV importieren</strong>
-          <span>Zusätzliche oder bestehende Pooldaten einlesen</span>
-          <input id="importCsvInput" type="file" accept=".csv,text/csv">
-        </label>
-        <label class="menu-action file-action">
-          <strong>Backup wiederherstellen</strong>
-          <span>JSON-Datei einlesen</span>
-          <input id="importJsonInput" type="file" accept=".json,application/json">
-        </label>
       </div>
 
       <div class="card">
         <h2>Bestand</h2>
-        <p><strong id="recordCount">0</strong> Ereignisse lokal gespeichert.</p>
-        <p class="hint">Die Daten bleiben auf diesem Gerät im Browser gespeichert. Für Datensicherheit regelmäßig CSV oder Backup exportieren.</p>
+        <p><strong id="recordCount">0</strong> Ereignisse zentral gespeichert.</p>
+        <p class="hint">Master-Datenbestand in Supabase. CSV und JSON-Backup bleiben als zusätzliche Sicherung verfügbar.</p>
+        <p class="hint"><strong id="currentPoolName"></strong><br><span id="currentUserEmail"></span></p>
       </div>
 
       <div class="app-info">
-        <span>PoolLog</span>
-        <strong id="appVersion">Version 1.6.1</strong>
+        <span>FreePoolLog4U Mini</span>
+        <strong id="appVersion">Version 1.0.0-beta.1</strong>
       </div>
     </section>
   </main>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script src="app.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>

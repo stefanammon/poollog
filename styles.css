@@ -177,3 +177,15 @@ input:focus,select:focus,textarea:focus{border-color:var(--brand);box-shadow:0 0
   .interval-head{align-items:flex-start}
   .interval-badge{max-width:58%;font-size:.76rem}
 }
+
+
+/* FreePoolLog4U Mini 1.0 Beta */
+.version-top{font-size:.75rem;color:var(--muted);margin-top:2px}
+.top-actions{display:flex;align-items:center;gap:4px}
+.auth-card{margin-top:28px}
+.auth-card h2{font-size:1.25rem;margin-bottom:8px}
+.auth-secondary{margin-top:9px}
+.auth-reset{display:block;margin:9px auto 0}
+.auth-message{min-height:1.4em;margin:12px 2px 0;font-size:.86rem;color:var(--brand);line-height:1.4}
+.auth-message.auth-error{color:var(--danger)}
+#onboardingView{padding-top:16px}

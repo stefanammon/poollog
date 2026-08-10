@@ -1,7 +1,7 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
-const APP_VERSION = "1.0.0-beta.1";
-const APP_LABEL = "FreePoolLog4U Mini";
+const APP_VERSION = "1.0.0-beta.2";
+const APP_LABEL = "FreePoolLog4U";
 const SUPABASE_URL = "https://yxuobeqkxewznneqcpbz.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_77QwPv7tJrTenyrHGZHjWg_2UTuzVgk";
 const SITE_URL = "https://stefanammon.github.io/poollog/";
@@ -12,6 +12,8 @@ let currentUser = null;
 let currentPool = null;
 let editingId = null;
 let authBusy = false;
+let recoveryMode = false;
+let lastAutoRefreshAt = 0;
 
 const $ = id => document.getElementById(id);
 const form = $("entryForm");
@@ -471,15 +473,54 @@ function compareRecordsAsc(a,b){
 
 function compareRecordsDesc(a,b){ return compareRecordsAsc(b,a); }
 
+function actorStorageKey(){
+  if(!currentUser?.id || !currentPool?.id) return "";
+  return `poollog_actor_code:${currentUser.id}:${currentPool.id}`;
+}
+
+function currentActorCode(){
+  const key=actorStorageKey();
+  return key ? (localStorage.getItem(key) || "").trim() : "";
+}
+
+async function ensureActorCodeForPool(){
+  if(currentActorCode() || !currentPool) return;
+  const {data,error}=await supabase
+    .from("events")
+    .select("actor_code,event_date,event_time,created_at")
+    .eq("pool_id",currentPool.id)
+    .not("actor_code","is",null)
+    .order("event_date",{ascending:false})
+    .order("event_time",{ascending:false,nullsFirst:false})
+    .order("created_at",{ascending:false})
+    .limit(1);
+  if(error) throw error;
+  const actor=String(data?.[0]?.actor_code || "").trim();
+  const key=actorStorageKey();
+  if(actor && key) localStorage.setItem(key,actor);
+}
+
 function updatePoolIdentity(){
   if($("currentPoolName")) $("currentPoolName").textContent=currentPool?.name || "";
   if($("currentUserEmail")) $("currentUserEmail").textContent=currentUser?.email || "";
+
+  const identity=$("poolIdentityTop");
+  if(identity){
+    if(currentPool){
+      const actor=currentActorCode();
+      identity.textContent=actor ? `${currentPool.name} · ${actor}` : currentPool.name;
+      identity.classList.remove("hidden");
+    }else{
+      identity.textContent="";
+      identity.classList.add("hidden");
+    }
+  }
 }
 
 function setDefaults(){
   form.reset();
   $("Aktion").value="Messung";
-  $("Kürzel").value=localStorage.getItem("poollog_actor_code") || "";
+  $("Kürzel").value=currentActorCode();
   $("Datum").value=localDateString();
   $("Uhrzeit").value=localTimeString();
   editingId=null;
@@ -753,7 +794,11 @@ form.addEventListener("submit",async e=>{
   const err=validateRecord(rec);
   if(err){ toast(err); return; }
   try{
-    if(rec.Kürzel) localStorage.setItem("poollog_actor_code",rec.Kürzel);
+    if(rec.Kürzel){
+      const key=actorStorageKey();
+      if(key) localStorage.setItem(key,rec.Kürzel);
+      updatePoolIdentity();
+    }
     if(editingId===null) await addRecord(rec); else await putRecord(rec);
     const msg=editingId===null ? "Zentral gespeichert" : "Änderung zentral gespeichert";
     setDefaults(); await renderLists(); toast(msg);
@@ -778,12 +823,18 @@ for(const [prefix] of stateIds()){
 $("fCl").addEventListener("input",()=>{ if(valueOf("fCl")!=="") $("fCl_Status").value=""; });
 $("fCl_Status").addEventListener("change",()=>{ if(valueOf("fCl_Status")!=="") $("fCl").value=""; });
 $("cancelEditBtn").addEventListener("click",setDefaults);
-$("showDataBtn").addEventListener("click",()=>switchView("dataView"));
+$("showDataBtn").addEventListener("click",async()=>{
+  try{ await renderLists(); }catch(err){ showError(err); }
+  switchView("dataView");
+});
 $("backBtn").addEventListener("click",()=>switchView("entryView"));
 $("menuBtn").addEventListener("click",()=>switchView("menuView"));
 $("masterDataBtn").addEventListener("click",async()=>{
-  await loadMasterData();
-  switchView("masterDataView");
+  try{
+    await reloadCurrentPool();
+    await loadMasterData();
+    switchView("masterDataView");
+  }catch(err){ showError(err); }
 });
 $("closeMasterDataBtn").addEventListener("click",()=>switchView("menuView"));
 $("masterDataForm").addEventListener("submit",async e=>{
@@ -824,17 +875,42 @@ function setAuthMessage(message,isError=false){
 }
 
 function showAuth(){
+  recoveryMode=false;
   currentPool=null;
   currentUser=null;
   $("menuBtn").classList.add("hidden");
   $("logoutBtn").classList.add("hidden");
+  updatePoolIdentity();
   switchView("authView");
-  updateHeader("Anmelden");
+  updateHeader();
 }
 
-function updateHeader(title){
-  if($("screenTitle")) $("screenTitle").textContent=title;
-  if($("appVersionTop")) $("appVersionTop").textContent=`Version ${APP_VERSION}`;
+function updateHeader(){
+  if($("appNameTop")) $("appNameTop").textContent="FreePoolLog4U";
+  if($("appVersionTop")) $("appVersionTop").textContent=`Mini Version ${APP_VERSION}`;
+  updatePoolIdentity();
+}
+
+function showPasswordRecovery(){
+  recoveryMode=true;
+  $("menuBtn").classList.add("hidden");
+  $("logoutBtn").classList.remove("hidden");
+  switchView("passwordRecoveryView");
+  updateHeader();
+  setTimeout(()=>$("newPassword")?.focus(),0);
+}
+
+function recoveryRequestedByUrl(){
+  const hash=String(location.hash || "");
+  const query=String(location.search || "");
+  return /(?:^|[&#?])type=recovery(?:&|$)/.test(hash) ||
+         /(?:^|[&?])type=recovery(?:&|$)/.test(query);
+}
+
+function clearRecoveryUrl(){
+  if(history?.replaceState){
+    history.replaceState({},document.title,SITE_URL);
+  }
 }
 
 async function loadCurrentPool(){
@@ -848,10 +924,11 @@ async function loadCurrentPool(){
     $("menuBtn").classList.add("hidden");
     $("logoutBtn").classList.remove("hidden");
     switchView("onboardingView");
-    updateHeader("Pool anlegen");
+    updateHeader();
     return false;
   }
   currentPool=data[0];
+  await ensureActorCodeForPool();
   updatePoolIdentity();
   return true;
 }
@@ -862,7 +939,7 @@ async function startAuthenticatedApp(){
   $("menuBtn").classList.remove("hidden");
   $("logoutBtn").classList.remove("hidden");
   switchView("entryView");
-  updateHeader("Neue Aktion");
+  updateHeader();
   setDefaults();
   $("exportFrom").value=localDateString();
   $("exportTo").value=localDateString();
@@ -876,6 +953,10 @@ async function refreshSession(){
   if(error) throw error;
   if(!session){ showAuth(); return; }
   currentUser=session.user;
+  if(recoveryMode || recoveryRequestedByUrl()){
+    showPasswordRecovery();
+    return;
+  }
   await startAuthenticatedApp();
 }
 
@@ -927,24 +1008,40 @@ async function resetPassword(){
 
 async function updateRecoveredPassword(){
   const password=valueOf("newPassword");
+  const confirmPassword=valueOf("newPasswordConfirm");
   const msg=$("recoveryMessage");
+
   if(password.length<8){
     msg.textContent="Bitte ein Passwort mit mindestens 8 Zeichen wählen.";
     msg.classList.add("auth-error");
     return;
   }
+  if(password!==confirmPassword){
+    msg.textContent="Die beiden Passwörter stimmen nicht überein.";
+    msg.classList.add("auth-error");
+    return;
+  }
+
   const {error}=await supabase.auth.updateUser({password});
   if(error){
     msg.textContent=error.message;
     msg.classList.add("auth-error");
     return;
   }
+
   msg.classList.remove("auth-error");
-  msg.textContent="Passwort geändert.";
-  setTimeout(()=>startAuthenticatedApp().catch(showError),500);
+  msg.textContent="Passwort geändert. Du kannst Dich jetzt mit dem neuen Passwort anmelden.";
+  recoveryMode=false;
+  clearRecoveryUrl();
+  await supabase.auth.signOut();
+  $("authPassword").value="";
+  setAuthMessage("Passwort erfolgreich geändert. Bitte neu anmelden.");
+  showAuth();
 }
 
 async function signOut(){
+  recoveryMode=false;
+  clearRecoveryUrl();
   await supabase.auth.signOut();
   showAuth();
 }
@@ -979,26 +1076,62 @@ $("updatePasswordBtn").addEventListener("click",()=>updateRecoveredPassword().ca
 $("logoutBtn").addEventListener("click",()=>signOut().catch(showError));
 $("onboardingForm").addEventListener("submit",e=>{ e.preventDefault(); createFirstPool().catch(showError); });
 
+async function reloadCurrentPool(){
+  if(!currentPool) return;
+  const {data,error}=await supabase
+    .from("pools")
+    .select("*")
+    .eq("id",currentPool.id)
+    .single();
+  if(error) throw error;
+  currentPool=data;
+  updatePoolIdentity();
+}
+
+async function refreshCentralData({force=false}={}){
+  if(!currentUser || !currentPool || recoveryMode) return;
+  const now=Date.now();
+  if(!force && now-lastAutoRefreshAt<1500) return;
+  lastAutoRefreshAt=now;
+
+  try{
+    await reloadCurrentPool();
+    await renderLists();
+    await updateElapsedSinceMeasurement();
+    await updateRangeExportInfo();
+  }catch(err){
+    console.error("Automatische Aktualisierung fehlgeschlagen",err);
+  }
+}
+
+document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState==="visible") refreshCentralData();
+});
+window.addEventListener("focus",()=>refreshCentralData());
+
 supabase.auth.onAuthStateChange((event,session)=>{
-  if(event==="SIGNED_OUT") showAuth();
+  if(event==="SIGNED_OUT"){
+    if(!recoveryMode) showAuth();
+    return;
+  }
   if(event==="PASSWORD_RECOVERY"){
     currentUser=session?.user || currentUser;
-    $("menuBtn").classList.add("hidden");
-    $("logoutBtn").classList.remove("hidden");
-    switchView("passwordRecoveryView");
-    updateHeader("Passwort ändern");
+    showPasswordRecovery();
+    return;
   }
 });
 
 (async()=>{
+  recoveryMode=recoveryRequestedByUrl();
   $("appNameTop").textContent=APP_LABEL;
-  $("appVersion").textContent="Version "+APP_VERSION;
-  $("appVersionTop").textContent="Version "+APP_VERSION;
+  $("appVersion").textContent="Mini Version "+APP_VERSION;
+  $("appVersionTop").textContent="Mini Version "+APP_VERSION;
   try{
     await refreshSession();
   }catch(err){
     showError(err);
-    showAuth();
+    if(recoveryMode) showPasswordRecovery();
+    else showAuth();
   }
   if("serviceWorker" in navigator && location.protocol!=="file:"){
     navigator.serviceWorker.register("service-worker.js").catch(console.error);

@@ -31,3 +31,13 @@ Pilotversion für eine kleine externe Testergruppe.
 - Mehrpool-Auswahl in der UI
 - Offline-Synchronisierung
 - Pro-Funktionen, Subscription, KI, Wissen, Empfehlungen, Fotos
+
+
+## 1.0.0-beta.2
+- Passwort-Recovery erkennt den Supabase-Recovery-Link zuverlässig und fordert ein neues Passwort zweimal an
+- nach erfolgreichem Reset ist eine bewusste Neuanmeldung mit dem neuen Passwort erforderlich
+- konsistenter Kopfbereich: FreePoolLog4U, Poolname und optional Benutzerkürzel, Mini-Version
+- redundante Seitenüberschriften reduziert
+- neutraler Kürzel-Platzhalter statt persönlichem Beispiel
+- zentrale Daten werden beim Zurückkehren zur App bzw. zum Browserfenster automatisch neu geladen
+- neue Cache-Version für den PWA-Rollout

@@ -1,4 +1,4 @@
-const CACHE="freepoollog4u-mini-1.0.0-beta.1";
+const CACHE="poollog-mini-1.0.0-beta.2";
 const ASSETS=["./","./index.html","./styles.css","./app.js","./manifest.webmanifest","./icon.svg"];
 
 self.addEventListener("install",event=>{

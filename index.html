@@ -14,9 +14,9 @@
 <body>
   <header class="topbar">
     <div>
-      <div id="appNameTop" class="eyebrow">FreePoolLog4U Mini</div>
-      <h1 id="screenTitle">Anmelden</h1>
-      <div id="appVersionTop" class="version-top">Version 1.0.0-beta.1</div>
+      <div id="appNameTop" class="brand-name">FreePoolLog4U</div>
+      <h1 id="poolIdentityTop" class="pool-identity hidden"></h1>
+      <div id="appVersionTop" class="version-top">Mini Version 1.0.0-beta.2</div>
     </div>
     <div class="top-actions">
       <button id="logoutBtn" class="text-btn hidden" type="button">Abmelden</button>
@@ -27,7 +27,6 @@
   <main>
     <section id="authView" class="view active">
       <div class="card auth-card">
-        <h2>FreePoolLog4U Mini</h2>
         <p class="hint">Zentrale Pooldaten auf Smartphone und PC. Für die Beta ist ein kostenloses Benutzerkonto erforderlich.</p>
         <label class="field"><span>E-Mail</span><input id="authEmail" type="email" autocomplete="username"></label>
         <label class="field"><span>Passwort</span><input id="authPassword" type="password" autocomplete="current-password"></label>
@@ -40,10 +39,10 @@
 
     <section id="passwordRecoveryView" class="view">
       <div class="card auth-card">
-        <h2>Neues Passwort setzen</h2>
         <p class="hint">Gib ein neues Passwort für Dein FreePoolLog4U-Konto ein.</p>
         <label class="field"><span>Neues Passwort</span><input id="newPassword" type="password" autocomplete="new-password"></label>
-        <button id="updatePasswordBtn" class="primary full-width" type="button">Passwort speichern</button>
+        <label class="field"><span>Passwort wiederholen</span><input id="newPasswordConfirm" type="password" autocomplete="new-password"></label>
+        <button id="updatePasswordBtn" class="primary full-width" type="button">Neues Passwort speichern</button>
         <p id="recoveryMessage" class="auth-message" aria-live="polite"></p>
       </div>
     </section>
@@ -51,8 +50,7 @@
     <section id="onboardingView" class="view">
       <form id="onboardingForm">
         <div class="card">
-          <h2>Deinen Pool anlegen</h2>
-          <p class="hint">Diese Angaben kannst Du später unter Stammdaten ändern.</p>
+          <p class="hint onboarding-lead"><strong>Pool anlegen</strong><br>Diese Angaben kannst Du später unter Stammdaten ändern.</p>
           <label class="field"><span>Poolbezeichnung</span><input id="newPoolName" type="text" required placeholder="z. B. Gartenpool"></label>
           <label class="field"><span>Poolvolumen <small>m³</small></span><input id="newPoolVolume" type="number" min="0" step="0.1" inputmode="decimal" placeholder="z. B. 17,5"></label>
         </div>
@@ -85,7 +83,7 @@
           </div>
           <label class="field">
             <span>Kürzel</span>
-            <input id="Kürzel" name="Kürzel" type="text" maxlength="20" autocomplete="off" placeholder="z. B. sam">
+            <input id="Kürzel" name="Kürzel" type="text" maxlength="20" autocomplete="off" placeholder="Trage hier ein Benutzerkürzel ein">
           </label>
         </div>
 
@@ -300,11 +298,8 @@
     </section>
 
     <section id="dataView" class="view">
-      <div class="section-title">
-        <div>
-          <div class="eyebrow">Rohdaten</div>
-          <h1>Daten</h1>
-        </div>
+      <div class="section-title section-title-simple">
+        <h2>Daten</h2>
         <button id="backBtn" class="text-btn" type="button">Zur Eingabe</button>
       </div>
       <div class="toolbar">
@@ -315,11 +310,8 @@
 
 
     <section id="masterDataView" class="view">
-      <div class="section-title">
-        <div>
-          <div class="eyebrow">PoolLog</div>
-          <h1>Stammdaten</h1>
-        </div>
+      <div class="section-title section-title-simple">
+        <h2>Stammdaten</h2>
         <button id="closeMasterDataBtn" class="text-btn" type="button">Zurück</button>
       </div>
 
@@ -407,11 +399,8 @@
     </section>
 
     <section id="menuView" class="view">
-      <div class="section-title">
-        <div>
-          <div class="eyebrow">PoolLog</div>
-          <h1>Daten & Sicherung</h1>
-        </div>
+      <div class="section-title section-title-simple">
+        <h2>Daten & Sicherung</h2>
         <button id="closeMenuBtn" class="text-btn" type="button">Schließen</button>
       </div>
 
@@ -443,7 +432,7 @@
         </div>
         <button id="exportJsonBtn" class="menu-action" type="button">
           <strong>Backup exportieren</strong>
-          <span>Vollständige lokale Sicherung als JSON</span>
+          <span>Vollständige Sicherung der zentralen Pooldaten als JSON</span>
         </button>
       </div>
 

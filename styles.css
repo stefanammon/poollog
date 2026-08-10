@@ -257,3 +257,13 @@ input:focus,select:focus,textarea:focus{border-color:var(--brand);box-shadow:0 0
 .legal-content h3{font-size:1rem;color:#274b63;margin:20px 0 8px}
 .legal-content a{color:var(--brand);overflow-wrap:anywhere}
 @media(max-width:430px){.modal-backdrop{padding:10px}.modal-panel{padding:17px;border-radius:15px;max-height:90vh}.modal-head{top:-17px;padding-top:17px}.legal-footer{font-size:.75rem}}
+
+
+/* Beta 4 – Registrierungsfeedback und konfigurierbare Reinigungsarten */
+.registration-help{text-align:left;margin:12px 2px 4px}
+button:disabled{opacity:.62;cursor:wait}
+.config-list{display:grid;gap:8px;margin:12px 0}
+.config-row,.config-add-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center}
+.config-row input,.config-add-row input{min-width:0}
+.delete-config{white-space:nowrap}
+@media(max-width:430px){.config-row,.config-add-row{grid-template-columns:1fr}.delete-config{justify-self:start}}

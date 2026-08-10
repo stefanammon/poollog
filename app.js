@@ -309,6 +309,9 @@ async function updateElapsedSinceMeasurement(){
   await applyIntervalDefaults(false);
 }
 
+const DEFAULT_CLEANING_TYPES = ["Poolroboter","Boden saugen","Boden bürsten","Wände bürsten","Wasserlinie reinigen","Vorfilter reinigen","Filter rückspülen"];
+let cleaningTypes = [];
+
 const MASTER_DEFAULTS = {
   poolName:"Mein Pool",
   poolVolume:"",
@@ -479,8 +482,82 @@ async function deleteRecord(id){
   if(error) throw error;
 }
 
+async function loadCleaningTypes(){
+  if(!currentPool){ cleaningTypes=[]; renderCleaningTypesConfig(); renderCleaningTypeSelect(); return; }
+  const {data,error}=await supabase
+    .from("pool_cleaning_types")
+    .select("id,name,sort_order")
+    .eq("pool_id",currentPool.id)
+    .order("sort_order",{ascending:true})
+    .order("name",{ascending:true});
+  if(error) throw error;
+  cleaningTypes=(data||[]).map(x=>({id:x.id,name:String(x.name||"").trim(),sort_order:x.sort_order||0})).filter(x=>x.name);
+  if(cleaningTypes.length===0){
+    const rows=DEFAULT_CLEANING_TYPES.map((name,i)=>({pool_id:currentPool.id,name,sort_order:i+1}));
+    const seeded=await supabase.from("pool_cleaning_types").insert(rows).select("id,name,sort_order");
+    if(seeded.error) throw seeded.error;
+    cleaningTypes=(seeded.data||[]).sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
+  }
+  renderCleaningTypesConfig();
+  renderCleaningTypeSelect();
+}
+
+function renderCleaningTypeSelect(selected=""){
+  const select=$("Reinigungsart");
+  if(!select) return;
+  const current=selected || select.value || "";
+  select.replaceChildren(new Option("",""), ...cleaningTypes.map(x=>new Option(x.name,x.name)));
+  if(current && !cleaningTypes.some(x=>x.name===current)) select.append(new Option(`${current} (historischer Wert)`,current));
+  select.value=current;
+}
+
+function renderCleaningTypesConfig(){
+  const box=$("cleaningTypesList");
+  if(!box) return;
+  box.replaceChildren(...cleaningTypes.map((item,index)=>{
+    const row=document.createElement("div"); row.className="config-row";
+    const input=document.createElement("input"); input.type="text"; input.maxLength=60; input.value=item.name; input.dataset.cleaningId=item.id;
+    input.setAttribute("aria-label",`Reinigungsart ${index+1}`);
+    const del=document.createElement("button"); del.type="button"; del.className="text-btn delete-config"; del.textContent="Entfernen";
+    del.addEventListener("click",async()=>{
+      const {error}=await supabase.from("pool_cleaning_types").delete().eq("id",item.id).eq("pool_id",currentPool.id);
+      if(error){ showError(error); return; }
+      await loadCleaningTypes();
+    });
+    row.append(input,del); return row;
+  }));
+}
+
+async function addCleaningType(){
+  const input=$("newCleaningType");
+  const name=(input.value||"").trim();
+  if(!name){ toast("Bitte eine konkrete Reinigungsart eingeben."); return; }
+  if(cleaningTypes.some(x=>x.name.toLocaleLowerCase("de-DE")===name.toLocaleLowerCase("de-DE"))){ toast("Diese Reinigungsart ist bereits vorhanden."); return; }
+  const next=Math.max(0,...cleaningTypes.map(x=>Number(x.sort_order)||0))+1;
+  const {error}=await supabase.from("pool_cleaning_types").insert({pool_id:currentPool.id,name,sort_order:next});
+  if(error){ showError(error); return; }
+  input.value=""; await loadCleaningTypes();
+}
+
+async function saveCleaningTypeEdits(){
+  const inputs=[...document.querySelectorAll("[data-cleaning-id]")];
+  const names=inputs.map(x=>x.value.trim());
+  if(names.some(x=>!x)) throw new Error("Reinigungsarten dürfen nicht leer sein. Entferne nicht benötigte Einträge stattdessen.");
+  const lower=names.map(x=>x.toLocaleLowerCase("de-DE"));
+  if(new Set(lower).size!==lower.length) throw new Error("Jede Reinigungsart darf nur einmal vorkommen.");
+  for(let i=0;i<inputs.length;i++){
+    const item=cleaningTypes.find(x=>String(x.id)===String(inputs[i].dataset.cleaningId));
+    if(item && item.name!==names[i]){
+      const {error}=await supabase.from("pool_cleaning_types").update({name:names[i]}).eq("id",item.id).eq("pool_id",currentPool.id);
+      if(error) throw error;
+    }
+  }
+  await loadCleaningTypes();
+}
+
 async function loadMasterData(){
   const md=await getMasterData();
+  await loadCleaningTypes();
   $("mdPoolName").value=md.poolName ?? "";
   $("mdPoolVolume").value=md.poolVolume ?? "";
   $("mdDayStart").value=md.dayStart ?? "";
@@ -731,6 +808,7 @@ async function editRecord(id){
     Wasseroptik:"Wasseroptik",Notiz:"Notiz"
   };
   for(const [k,id2] of Object.entries(mapping)) if($(id2)) $(id2).value=r[k]??"";
+  if(r.Aktion==="Reinigung") renderCleaningTypeSelect(r.Reinigungsart||"");
   if(r.Aktion==="Wasserfüllung") $("WasserlinieOther").value=r.Wasserlinie??"";
   await updateElapsedSinceMeasurement();
 
@@ -897,6 +975,8 @@ $("masterDataBtn").addEventListener("click",async()=>{
   }catch(err){ showError(err); }
 });
 $("closeMasterDataBtn").addEventListener("click",()=>switchView("menuView"));
+$("addCleaningTypeBtn").addEventListener("click",()=>addCleaningType().catch(showError));
+$("newCleaningType").addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); addCleaningType().catch(showError); } });
 $("masterDataForm").addEventListener("submit",async e=>{
   e.preventDefault();
   const day=valueOf("mdDayStart");
@@ -908,6 +988,7 @@ $("masterDataForm").addEventListener("submit",async e=>{
     toast("Poolvolumen bitte prüfen."); return;
   }
   try{
+    await saveCleaningTypeEdits();
     await saveMasterData();
     toast("Stammdaten zentral gespeichert");
   }catch(err){ showError(err); }
@@ -1049,19 +1130,23 @@ async function signUp(){
   if(!email || !password){ setAuthMessage("E-Mail und Passwort eingeben.",true); return; }
   if(password.length<8){ setAuthMessage("Bitte ein Passwort mit mindestens 8 Zeichen wählen.",true); return; }
   authBusy=true;
-  setAuthMessage("Registrierung läuft …");
+  $("registerBtn").disabled=true;
+  $("registerBtn").textContent="Registrierung läuft …";
+  setAuthMessage("Registrierung wird angelegt. Das kann einige Sekunden dauern …");
   const {data,error}=await supabase.auth.signUp({
     email,password,
     options:{emailRedirectTo:SITE_URL}
   });
   authBusy=false;
+  $("registerBtn").disabled=false;
+  $("registerBtn").textContent="Neu registrieren";
   if(error){ setAuthMessage(error.message,true); return; }
   if(data.session){
     currentUser=data.user;
     setAuthMessage("");
     await startAuthenticatedApp();
   }else{
-    setAuthMessage("Registrierung angelegt. Bitte die Bestätigungs-E-Mail öffnen und anschließend hier anmelden.");
+    setAuthMessage("Fast geschafft! Wir haben Dir eine Bestätigungs-E-Mail geschickt. Öffne die E-Mail und bestätige Deine Adresse. Danach kannst Du Dich bei FreePoolLog4U anmelden.");
   }
 }
 

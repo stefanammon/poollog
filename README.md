@@ -48,6 +48,8 @@ Pilotversion für einen geschlossenen externen Betatest mit bis zu 20 Personen.
 - direkter Feedback-Zugang per E-Mail
 - zentrale Versionsdefinition für App und PWA-Cache
 - fehlendes PWA-Icon im Release-Paket ergänzt
+- Registrierung mit eindeutiger Eingabehilfe und sichtbarem Wartezustand
+- Reinigungsarten pro Pool frei konfigurierbar; keine Sammelkategorien
 
 ## Bewusst noch nicht enthalten
 
@@ -55,3 +57,7 @@ Pilotversion für einen geschlossenen externen Betatest mit bis zu 20 Personen.
 - Offline-Synchronisierung
 - automatische Bewertung der Wasserchemie oder Dosierungsberatung
 - Pro-Funktionen, Subscription, KI, Wissen, Empfehlungen oder Fotoanalyse
+
+
+## Einmalige Datenbankmigration für dieses Update
+Vor dem Deployment `SUPABASE_BETA4_CLEANING_TYPES.sql` im Supabase SQL Editor ausführen. Die Tabelle ist per RLS auf den jeweiligen Pool-Eigentümer beschränkt.

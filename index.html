@@ -41,6 +41,7 @@
         <label class="field"><span>Passwort</span><input id="authPassword" type="password" autocomplete="current-password"></label>
         <button id="loginBtn" class="primary full-width" type="button">Anmelden</button>
         <button id="registerBtn" class="secondary full-width auth-secondary" type="button">Neu registrieren</button>
+        <p class="hint registration-help"><strong>Noch kein Konto?</strong><br>Gib Deine E-Mail-Adresse und ein Passwort mit mindestens 8 Zeichen ein und tippe anschließend auf <strong>„Neu registrieren“</strong>.</p>
         <p class="legal-note">Mit Deiner Registrierung bestätigst Du, dass Du die <button class="inline-link" type="button" data-legal="privacy">Datenschutzinformation</button> zur Kenntnis genommen hast.</p>
         <button id="resetPasswordBtn" class="text-btn auth-reset" type="button">Passwort vergessen?</button>
         <p id="authMessage" class="auth-message" aria-live="polite"></p>
@@ -103,8 +104,6 @@
             <span>Reinigungsart</span>
             <select id="Reinigungsart" name="Reinigungsart">
               <option value=""></option>
-              <option>Roboter</option>
-              <option>Skimmersocke</option>
             </select>
           </label>
         </div>
@@ -400,6 +399,16 @@
             <option value="zero">Standard: 0 Stunden</option>
             <option value="full">Standard: gesamtes Intervall</option>
           </select></label>
+        </div>
+
+        <div class="card">
+          <h2>Reinigungsarten</h2>
+          <p class="hint">Lege hier die konkreten Reinigungsarbeiten für diesen Pool fest. Die Liste wird bei der Aktion „Reinigung“ zur Auswahl angeboten.</p>
+          <div id="cleaningTypesList" class="config-list"></div>
+          <div class="config-add-row">
+            <input id="newCleaningType" type="text" maxlength="60" autocomplete="off" placeholder="z. B. Vorfilter reinigen">
+            <button id="addCleaningTypeBtn" class="secondary" type="button">Hinzufügen</button>
+          </div>
         </div>
 
         <div class="sticky-actions">

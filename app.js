@@ -895,7 +895,7 @@ async function editRecord(id){
   $("Aktion").value=r.Aktion || "Messung";
   $("Datum").value=r.Datum || localDateString();
   $("Uhrzeit").value=r.Uhrzeit || "";
-  if([...$("Kürzel").options].some(o=>o.value===r.Kürzel)) $("Kürzel").value=r.Kürzel;
+  $("Kürzel").value=r.Kürzel ?? "";
   updateActionUI();
   const mapping={
     CHC_g:"CHC_g",Wasserlinie:"Wasserlinie",

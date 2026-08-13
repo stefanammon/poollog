@@ -231,13 +231,6 @@ input:focus,select:focus,textarea:focus{border-color:var(--brand);box-shadow:0 0
 .card{border-color:#d8e5ef}.primary{background:linear-gradient(135deg,#07529a,#0877bd)}.text-btn,.menu-action strong,.intervals summary{color:#07529a}
 .section-title-simple{background:linear-gradient(135deg,#07366f,#07529a);margin:0 -12px 14px;padding:11px 14px;border-radius:0 0 14px 14px;color:#fff}.section-title-simple .text-btn{color:#fff}.section-title-simple h2{font-size:1.12rem}
 
-.splash-screen{position:fixed;inset:0;z-index:9999;overflow:hidden;background:linear-gradient(to bottom,#07366f 0%,#07529a 30%,#18a9e4 61%,#eefaff 86%,#fff 100%);display:flex;align-items:center;justify-content:center;transition:opacity .42s ease,visibility .42s ease}
-.splash-screen.splash-hide{opacity:0;visibility:hidden}.splash-content{position:relative;z-index:3;text-align:center;color:#fff;padding:28px 20px 90px;text-shadow:0 2px 14px rgba(0,43,88,.16)}
-.splash-product{font-size:clamp(2.35rem,10vw,4.6rem);font-weight:850;letter-spacing:-.045em;line-height:.98}.splash-mini{font-size:clamp(1rem,4vw,1.45rem);font-weight:800;letter-spacing:.32em;margin:12px 0 24px;padding-left:.32em;opacity:.88}.splash-promise{font-size:clamp(1rem,4.1vw,1.35rem);font-weight:650;letter-spacing:.035em}.splash-promise b{font-weight:400;opacity:.65;margin:0 .32em}
-.ammon-mark{width:92px;height:92px;margin:0 auto 25px;border:7px solid rgba(255,255,255,.92);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.75rem;font-weight:900;letter-spacing:-.16em;padding-right:.13em;background:rgba(255,255,255,.05);box-shadow:0 5px 22px rgba(0,35,80,.12)}
-.splash-waves{position:absolute;inset:auto -15% -5vh -15%;height:42vh;z-index:2}.splash-waves span{position:absolute;left:0;width:130%;height:52%;border-radius:48% 52% 0 0/34% 38% 0 0;transform-origin:center;animation:poolWave 7s ease-in-out infinite alternate}.splash-waves span:nth-child(1){bottom:24%;background:rgba(255,255,255,.26);transform:rotate(-2deg)}.splash-waves span:nth-child(2){bottom:10%;left:-10%;background:rgba(255,255,255,.5);animation-delay:-2.4s;transform:rotate(2deg)}.splash-waves span:nth-child(3){bottom:-7%;left:4%;background:#fff;animation-delay:-4.5s;transform:rotate(-1deg)}
-@keyframes poolWave{from{transform:translateX(-2%) rotate(-1.5deg) scaleY(.94)}to{transform:translateX(2%) rotate(1.5deg) scaleY(1.06)}}
-@media(prefers-reduced-motion:reduce){.splash-waves span{animation:none}}
 
 
 /* Beta 4 – externer Betatest: Rechtliches, Feedback und Beta-Hinweis */
@@ -339,4 +332,139 @@ body.modal-open{overflow:hidden}
   .product-manager-header{top:-16px;margin:-16px -16px 10px;padding:14px 16px 10px}
   .product-edit-actions{bottom:-16px}
   .product-edit-actions .primary,.product-edit-actions .secondary{flex:1 1 140px}
+}
+
+/* Beta 5 – approved SAM / FreePoolLog4U visual polish */
+:root{
+  --bg:#f7f9fc;
+  --card:#fff;
+  --ink:#08234d;
+  --muted:#60718a;
+  --brand:#0757c8;
+  --brand-dark:#07366f;
+  --brand-bright:#13bfe9;
+  --line:#dce5ef;
+  --soft:#eef6ff;
+  --warn:#eef6ff;
+  --shadow:0 5px 18px rgba(8,35,77,.055);
+}
+html,body{background:var(--bg)}
+body{font-size:16px;line-height:1.45}
+main{max-width:720px;padding:24px 16px 110px}
+h1{font-size:1.5rem;line-height:1.18;letter-spacing:-.025em;font-weight:700}
+h2{font-size:1.125rem;line-height:1.25;font-weight:700;margin-bottom:14px}
+.hint{font-size:.875rem;line-height:1.5}
+
+.topbar{
+  padding:12px max(16px,calc((100vw - 720px)/2 + 16px));
+  background:rgba(255,255,255,.96);border-bottom:1px solid var(--line);
+  box-shadow:0 2px 10px rgba(8,35,77,.035);backdrop-filter:blur(14px)
+}
+.brand-name{font-size:1.08rem;font-weight:700;letter-spacing:-.015em;color:var(--ink)}
+.pool-identity{font-size:.9rem;font-weight:600;color:var(--brand);margin-top:1px}
+.version-top{font-size:.72rem;color:var(--muted);opacity:1;margin-top:1px}
+.topbar .text-btn{color:var(--brand);opacity:1}
+.icon-btn{background:var(--soft);color:var(--brand);border:1px solid #d8e7f7}
+
+.card{border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:16px;box-shadow:var(--shadow)}
+.card.compact{padding-bottom:10px}
+.field{margin-bottom:16px}
+.field>span{font-size:.875rem;font-weight:600;margin-bottom:7px;color:#17355f}
+input,select,textarea{min-height:48px;border-color:#cbd8e6;border-radius:9px;padding:10px 12px;color:var(--ink)}
+input:focus,select:focus,textarea:focus{border-color:#3b82e6;box-shadow:0 0 0 3px rgba(59,130,230,.12)}
+.focus-field input{background:var(--soft);font-size:1.08rem;font-weight:700}
+.primary,.secondary{min-height:50px;border-radius:9px;font-weight:700;font-size:.95rem}
+.primary{background:var(--brand);color:#fff;box-shadow:0 4px 10px rgba(7,87,200,.14)}
+.primary:active{background:var(--brand-dark)}
+.secondary{background:#fff;color:var(--brand);border:1px solid #76a9ed}
+.text-btn,.menu-action strong,.intervals summary{color:var(--brand);font-weight:600}
+.sticky-actions{background:linear-gradient(to top,var(--bg) 78%,rgba(247,249,252,0));padding-top:14px}
+.section-title-simple{background:transparent;margin:4px 0 18px;padding:0;border-radius:0;color:var(--ink);border-bottom:1px solid var(--line);padding-bottom:12px}
+.section-title-simple .text-btn{color:var(--brand)}
+.section-title-simple h2{font-size:1.35rem}
+
+/* Login / first impression */
+#authView{max-width:460px;margin:0 auto}
+.auth-branding{padding:26px 4px 24px;text-align:left}
+.sam-logo{display:block;width:108px;height:auto;object-fit:contain;margin:0 0 38px}
+.auth-branding h1{font-size:2.35rem;letter-spacing:-.045em;margin:0;color:var(--ink)}
+.auth-version{font-size:1.1rem;color:var(--brand);margin:8px 0 24px}
+.auth-lead{max-width:330px;color:var(--muted);font-size:1rem;line-height:1.55;margin:0}
+.auth-card h2{font-size:1.2rem;color:var(--ink)}
+.auth-card{padding:20px}
+.auth-secondary{margin-top:10px}
+.legal-footer{max-width:720px;margin:-78px auto 0;color:var(--muted)}
+
+/* Quieter content grouping */
+.action-block h2{color:var(--ink)}
+.product-form,.basin-observation,.intervals{border-color:var(--line)}
+.basin-finding-row{background:#fbfcfe;border-color:var(--line)}
+.cleaning-choice{border-radius:9px}
+.mini-check{border-radius:9px}
+.record{border-radius:11px;box-shadow:none}
+
+/* History: retain the efficient table, give it desktop room and calmer hierarchy. */
+.measurement-history{border-radius:14px;box-shadow:var(--shadow)}
+.measurement-history-title{padding:18px 18px 12px}
+.measurement-table{font-size:.82rem}
+.measurement-table th{background:#f5f8fc;color:#3f5877;font-weight:700}
+.measurement-table tbody tr:nth-child(even){background:#fbfcfe}
+.measurement-table tbody tr:hover{background:#f1f7ff}
+@media(min-width:980px){
+  .measurement-history{width:min(1080px,calc(100vw - 48px));margin-left:50%;transform:translateX(-50%)}
+}
+@media(max-width:520px){
+  main{padding:16px 12px 104px}
+  .topbar{padding:10px 12px}
+  .card{padding:15px;border-radius:12px;margin-bottom:12px;box-shadow:0 3px 12px rgba(8,35,77,.045)}
+  .auth-branding{padding:20px 4px 18px}
+  .sam-logo{width:92px;margin-bottom:30px}
+  .auth-branding h1{font-size:2rem}
+  .auth-version{font-size:1rem;margin-bottom:20px}
+  .auth-card{padding:16px}
+  .two-col{gap:9px}
+  .measurement-history{margin-left:0;margin-right:0}
+}
+
+
+/* Beta 5 design – SAM branding in the global footer */
+.legal-footer{
+  max-width:720px;
+  margin:-78px auto 0;
+  padding:24px 16px max(26px,env(safe-area-inset-bottom));
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  gap:14px;
+  color:var(--muted);
+  font-size:.78rem;
+  position:relative;
+  z-index:1;
+}
+.legal-footer-logo{
+  display:block;
+  width:112px;
+  height:auto;
+  max-width:34vw;
+}
+.legal-footer-links{
+  width:100%;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:8px;
+  padding-top:13px;
+  border-top:1px solid var(--line);
+}
+@media(max-width:430px){
+  .legal-footer{
+    margin:-72px auto 0;
+    padding-left:16px;
+    padding-right:16px;
+    font-size:.75rem;
+    gap:12px;
+  }
+  .legal-footer-logo{width:96px}
 }

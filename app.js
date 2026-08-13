@@ -1924,6 +1924,7 @@ supabase.auth.onAuthStateChange((event,session)=>{
   $("appNameTop").textContent=APP_LABEL;
   $("appVersion").textContent="Mini Version "+APP_VERSION;
   $("appVersionTop").textContent="Mini Version "+APP_VERSION;
+  if($("authVersion")) $("authVersion").textContent=APP_VERSION;
   try{
     await refreshSession();
   }catch(err){
@@ -1935,13 +1936,3 @@ supabase.auth.onAuthStateChange((event,session)=>{
     navigator.serviceWorker.register("service-worker.js").catch(console.error);
   }
 })();
-
-
-// Beta 3: branded opening screen. It is deliberately brief and never blocks app use.
-function dismissSplash(){
-  const splash=$("splashScreen");
-  if(!splash) return;
-  splash.classList.add("splash-hide");
-  setTimeout(()=>splash.remove(),500);
-}
-window.addEventListener("load",()=>setTimeout(dismissSplash,1100),{once:true});

@@ -3,24 +3,16 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#0b5d7a">
+  <meta name="theme-color" content="#ffffff">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <title>FreePoolLog4U Mini</title>
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="icon" href="favicon-32.png" type="image/png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div id="splashScreen" class="splash-screen" aria-label="FreePoolLog4U Mini">
-    <div class="splash-waves" aria-hidden="true"><span></span><span></span><span></span></div>
-    <div class="splash-content">
-      <div class="ammon-mark" aria-label="AMMON">AM</div>
-      <div class="splash-product">FreePoolLog4U</div>
-      <div class="splash-mini">MINI</div>
-      <div class="splash-promise">Einfach <b>·</b> Sicher <b>·</b> Kristallklar</div>
-    </div>
-  </div>
   <header class="topbar">
     <div>
       <div id="appNameTop" class="brand-name">FreePoolLog4U</div>
@@ -35,7 +27,14 @@
 
   <main>
     <section id="authView" class="view active">
+      <div class="auth-branding">
+        <img class="sam-logo" src="sam-logo.png" alt="SAM">
+        <h1>FreePoolLog4U</h1>
+        <p class="auth-version">Mini Version <span id="authVersion">1.0.0-beta.5</span></p>
+        <p class="auth-lead">Dokumentiere Deine Poolwerte einfach, sicher und zuverlässig.</p>
+      </div>
       <div class="card auth-card">
+        <h2>Anmelden</h2>
         <p class="hint">Zentrale Pooldaten auf Smartphone und PC. Für die Beta ist ein kostenloses Benutzerkonto erforderlich.</p>
         <label class="field"><span>E-Mail</span><input id="authEmail" type="email" autocomplete="username"></label>
         <label class="field"><span>Passwort</span><input id="authPassword" type="password" autocomplete="current-password"></label>
@@ -595,11 +594,14 @@
 
 
   <footer class="legal-footer" aria-label="Rechtliche Informationen">
-    <button type="button" data-legal="privacy">Datenschutz</button>
-    <span aria-hidden="true">·</span>
-    <button type="button" data-legal="imprint">Impressum</button>
-    <span aria-hidden="true">·</span>
-    <button type="button" data-legal="beta">Beta-Hinweise</button>
+    <img class="legal-footer-logo" src="sam-logo.png" alt="SAM">
+    <div class="legal-footer-links">
+      <button type="button" data-legal="privacy">Datenschutz</button>
+      <span aria-hidden="true">·</span>
+      <button type="button" data-legal="imprint">Impressum</button>
+      <span aria-hidden="true">·</span>
+      <button type="button" data-legal="beta">Beta-Hinweise</button>
+    </div>
   </footer>
 
   <div id="legalModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="legalModalTitle">

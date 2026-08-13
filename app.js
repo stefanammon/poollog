@@ -5,7 +5,7 @@ const APP_LABEL = "FreePoolLog4U";
 const SUPABASE_URL = "https://yxuobeqkxewznneqcpbz.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_77QwPv7tJrTenyrHGZHjWg_2UTuzVgk";
 const SITE_URL = "https://stefanammon.github.io/poollog/";
-const HEADERS = ["Kürzel", "Datum", "Uhrzeit", "Aktion", "Reinigungsarten", "Wasserlinie", "Wassertemperatur", "Außentemperatur", "Innendach", "fCl", "fCl_Status", "CYA", "TA", "pH", "Wasseroptik", "Dach_Offen_h", "Badebetrieb_h", "Chlorschwimmer_h", "Pumpe_h", "CHC_g", "Notiz"];
+const HEADERS = ["Kürzel", "Datum", "Uhrzeit", "Aktion", "Reinigungsarten", "Wasserlinie", "Wassertemperatur", "Außentemperatur", "Innendach", "fCl", "fCl_Status", "CYA", "TA", "pH", "Wasseroptik", "Dach_Offen_h", "Badebetrieb_h", "Chlorschwimmer_h", "Pumpe_h", "CHC_g", "Wasserpflegeart", "Produkt_Hersteller", "Produkt_Name", "Produktart", "Menge", "Einheit", "Mengenerfassung", "Wasseruhr_vorher_m3", "Wasseruhr_nachher_m3", "Wasserlinie_vorher_mm", "Wasserlinie_nach_Ablassen_mm", "Wasserlinie_nach_Auffuellen_mm", "Entferntes_Wasser_l", "Zugefuehrtes_Wasser_l", "Wasserstandsaenderung_cm", "Wassermenge_l", "Beckenbefund", "Notiz"];
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 let currentUser = null;
@@ -14,6 +14,7 @@ let editingId = null;
 let authBusy = false;
 let recoveryMode = false;
 let lastAutoRefreshAt = 0;
+let products = [];
 
 const $ = id => document.getElementById(id);
 const form = $("entryForm");
@@ -472,6 +473,314 @@ async function replaceCleaningAssignments(eventId,selectedIds){
   if(insertError) throw insertError;
 }
 
+
+const CARE_ACTION_LABELS = {
+  chlor_add:"Chlor zufügen",
+  ph_lower:"pH senken",
+  ph_raise:"pH erhöhen",
+  ta_lower:"TA senken",
+  ta_raise:"TA erhöhen",
+  water_exchange_partial:"Teilwasseraustausch",
+  water_exchange_full:"Vollständiger Wasseraustausch"
+};
+const CARE_PRODUCT_TYPES = {
+  chlor_add:"chlorine",
+  ph_lower:"ph_minus",
+  ph_raise:"ph_plus",
+  ta_lower:"ta_minus",
+  ta_raise:"ta_plus"
+};
+const UNIT_LABELS={g:"g",kg:"kg",ml:"ml",l:"l",m3:"m³",piece:"Stück"};
+const PRODUCT_FORM_LABELS={granulate:"Granulat",powder:"Pulver",liquid:"Flüssigkeit",tablet:"Tablette",stick:"Stick",cartridge:"Kartusche"};
+const PRODUCT_TYPE_LABELS={chlorine:"Chlorpräparat",ph_minus:"pH-Senker",ph_plus:"pH-Heber",ta_minus:"TA-Senker",ta_plus:"TA-Heber"};
+const BASIN_APPEARANCE_LABELS={gray_brown:"grau/braun",green_yellow:"grün/gelb",black:"schwarz",whitish:"weißlich"};
+const BASIN_BEHAVIOR_LABELS={dispersible:"aufwirbelnd",adherent:"festsitzend"};
+const BASIN_LOCATION_LABELS={floor:"Boden",wall:"Wand",waterline:"Wasserlinie",steps:"Treppe",fixtures:"Einbauteile"};
+
+function isWaterCareSelection(value){ return String(value||"").startsWith("Wasserpflege:"); }
+function careActionFromSelection(value){ return isWaterCareSelection(value) ? String(value).split(":",2)[1] : ""; }
+function actionSelectionForRecord(record){
+  if(record?.Aktion==="Wasserpflege" && record?._waterCare?.care_action) return `Wasserpflege:${record._waterCare.care_action}`;
+  return record?.Aktion || "Messung";
+}
+
+async function loadProducts(){
+  if(!currentUser){ products=[]; renderProductSelect(); return; }
+  const {data,error}=await supabase
+    .from("products")
+    .select("id,owner_user_id,manufacturer,product_name,product_type,form,default_unit,is_active")
+    .eq("owner_user_id",currentUser.id)
+    .order("is_active",{ascending:false})
+    .order("manufacturer",{ascending:true})
+    .order("product_name",{ascending:true});
+  if(error) throw error;
+  products=data||[];
+  renderProductSelect();
+  renderProductManager();
+}
+
+function renderProductSelect(selectedId=""){
+  const select=$("WaterCareProduct");
+  if(!select) return;
+  const care=careActionFromSelection(valueOf("Aktion"));
+  const expected=CARE_PRODUCT_TYPES[care];
+  const matching=products.filter(p=>p.is_active && (!expected || p.product_type===expected));
+  const selected=String(selectedId||select.value||"");
+  select.replaceChildren();
+  const empty=document.createElement("option"); empty.value=""; empty.textContent=matching.length ? "Produkt auswählen" : "Noch kein passendes Produkt angelegt"; select.append(empty);
+  for(const p of matching){
+    const opt=document.createElement("option");
+    opt.value=p.id;
+    opt.textContent=`${p.manufacturer} – ${p.product_name}`;
+    if(String(p.id)===selected) opt.selected=true;
+    select.append(opt);
+  }
+  updateUnitFromProduct();
+}
+
+function updateUnitFromProduct(){
+  const p=products.find(x=>String(x.id)===valueOf("WaterCareProduct"));
+  if(p && $("WaterCareUnit")) $("WaterCareUnit").value=p.default_unit || "g";
+}
+
+async function createProductFromForm(){
+  const care=careActionFromSelection(valueOf("Aktion"));
+  const productType=CARE_PRODUCT_TYPES[care];
+  if(!productType){ toast("Für diese Maßnahme ist kein Produkt erforderlich."); return; }
+  const manufacturer=valueOf("ProductManufacturer");
+  const productName=valueOf("ProductName");
+  if(!manufacturer || !productName){ toast("Hersteller und Produktname sind erforderlich."); return; }
+  const payload={
+    owner_user_id:currentUser.id,
+    manufacturer,
+    product_name:productName,
+    product_type:productType,
+    form:valueOf("ProductForm"),
+    default_unit:valueOf("ProductUnit"),
+    is_active:true
+  };
+  const {data,error}=await supabase.from("products").insert(payload).select("id").single();
+  if(error) throw error;
+  await loadProducts();
+  renderProductSelect(data.id);
+  $("WaterCareProduct").value=data.id;
+  updateUnitFromProduct();
+  $("productForm").classList.add("hidden");
+  toast("Produkt gespeichert");
+}
+
+function productDisplayName(p){
+  return `${p.manufacturer} – ${p.product_name}`;
+}
+
+function renderProductManager(){
+  const list=$("productManagerList");
+  if(!list) return;
+  if(!products.length){
+    const empty=document.createElement("p"); empty.className="hint"; empty.textContent="Noch keine Produkte angelegt."; list.replaceChildren(empty); return;
+  }
+  list.replaceChildren(...products.map(p=>{
+    const row=document.createElement("div");
+    row.className=`product-manager-row${p.is_active?"":" product-inactive"}`;
+    const info=document.createElement("div");
+    info.className="product-manager-info";
+    const titleLine=document.createElement("div"); titleLine.className="product-title-line";
+    const title=document.createElement("strong"); title.textContent=productDisplayName(p);
+    const status=document.createElement("span"); status.className=`product-status ${p.is_active?"active":"inactive"}`; status.textContent=p.is_active?"Aktiv":"Deaktiviert";
+    titleLine.append(title,status);
+    const meta=document.createElement("span");
+    meta.textContent=`${PRODUCT_TYPE_LABELS[p.product_type]||p.product_type} · ${PRODUCT_FORM_LABELS[p.form]||p.form} · ${UNIT_LABELS[p.default_unit]||p.default_unit}`;
+    info.append(titleLine,meta);
+    const actions=document.createElement("div"); actions.className="product-manager-actions";
+    const edit=document.createElement("button"); edit.type="button"; edit.className="secondary compact-btn"; edit.textContent="Bearbeiten"; edit.addEventListener("click",()=>openProductEdit(p.id));
+    const toggle=document.createElement("button"); toggle.type="button"; toggle.className="secondary compact-btn"; toggle.textContent=p.is_active?"Deaktivieren":"Aktivieren"; toggle.addEventListener("click",()=>toggleProductActive(p.id,!p.is_active).catch(showError));
+    actions.append(edit,toggle); row.append(info,actions); return row;
+  }));
+}
+
+function openProductManager(){
+  $("productManager")?.classList.remove("hidden");
+  $("productEditForm")?.classList.add("hidden");
+  document.body.classList.add("modal-open");
+  renderProductManager();
+}
+
+function closeProductManager(){
+  $("productManager")?.classList.add("hidden");
+  $("productEditForm")?.classList.add("hidden");
+  document.body.classList.remove("modal-open");
+}
+
+function openProductEdit(productId){
+  const p=products.find(x=>String(x.id)===String(productId));
+  if(!p) return;
+  $("EditProductId").value=p.id;
+  $("EditProductManufacturer").value=p.manufacturer||"";
+  $("EditProductName").value=p.product_name||"";
+  $("EditProductType").value=p.product_type||"chlorine";
+  $("EditProductForm").value=p.form||"granulate";
+  $("EditProductUnit").value=p.default_unit||"g";
+  $("productEditForm").classList.remove("hidden");
+  $("EditProductManufacturer")?.focus();
+}
+
+async function saveProductEdit(){
+  const id=valueOf("EditProductId");
+  const manufacturer=valueOf("EditProductManufacturer");
+  const productName=valueOf("EditProductName");
+  if(!id || !manufacturer || !productName){ toast("Hersteller und Produktname sind erforderlich."); return; }
+  const payload={
+    manufacturer, product_name:productName, product_type:valueOf("EditProductType"),
+    form:valueOf("EditProductForm"), default_unit:valueOf("EditProductUnit"), updated_at:new Date().toISOString()
+  };
+  const {error}=await supabase.from("products").update(payload).eq("id",id).eq("owner_user_id",currentUser.id);
+  if(error) throw error;
+  await loadProducts();
+  $("productEditForm").classList.add("hidden");
+  toast("Produkt geändert");
+}
+
+async function toggleProductActive(productId,isActive){
+  const {error}=await supabase.from("products").update({is_active:isActive,updated_at:new Date().toISOString()}).eq("id",productId).eq("owner_user_id",currentUser.id);
+  if(error) throw error;
+  await loadProducts();
+  toast(isActive?"Produkt aktiviert":"Produkt deaktiviert");
+}
+
+async function getWaterCareDetails(){
+  if(!currentPool) return [];
+  const {data,error}=await supabase
+    .from("water_care_details")
+    .select("*")
+    .eq("pool_id",currentPool.id);
+  if(error) throw error;
+  return data||[];
+}
+
+function attachWaterCareDetails(records,details){
+  const byEvent=new Map(details.map(x=>[String(x.event_id),x]));
+  for(const r of records){
+    const d=byEvent.get(String(r._id));
+    if(!d) continue;
+    r._waterCare=d;
+    r["Wasserpflegeart"]=CARE_ACTION_LABELS[d.care_action]||d.care_action||"";
+    r["Produkt_Hersteller"]=dbText(d.product_manufacturer_snapshot);
+    r["Produkt_Name"]=dbText(d.product_name_snapshot);
+    r["Produktart"]=dbText(d.product_type_snapshot);
+    r["Menge"]=dbNumberText(d.amount);
+    r["Einheit"]=dbText(d.unit);
+    r["Mengenerfassung"]=dbText(d.water_exchange_method);
+    r["Wasseruhr_vorher_m3"]=dbNumberText(d.meter_before_m3);
+    r["Wasseruhr_nachher_m3"]=dbNumberText(d.meter_after_m3);
+    r["Wasserlinie_vorher_mm"]=dbNumberText(d.waterline_before_mm);
+    r["Wasserlinie_nach_Ablassen_mm"]=dbNumberText(d.waterline_after_drain_mm);
+    r["Wasserlinie_nach_Auffuellen_mm"]=dbNumberText(d.waterline_after_refill_mm);
+    r["Entferntes_Wasser_l"]=dbNumberText(d.removed_volume_l);
+    r["Zugefuehrtes_Wasser_l"]=dbNumberText(d.added_volume_l);
+    r["Wasserstandsaenderung_cm"]=dbNumberText(d.level_change_cm);
+    r["Wassermenge_l"]=dbNumberText(d.calculated_volume_l);
+  }
+  return records;
+}
+
+async function replaceWaterCareDetail(eventId,detail){
+  const {error:delError}=await supabase.from("water_care_details").delete().eq("pool_id",currentPool.id).eq("event_id",eventId);
+  if(delError) throw delError;
+  if(!detail) return;
+  const payload={pool_id:currentPool.id,event_id:eventId,...detail};
+  const {error}=await supabase.from("water_care_details").insert(payload);
+  if(error) throw error;
+}
+
+async function getBasinFindings(){
+  if(!currentPool) return [];
+  const {data:findings,error}=await supabase.from("basin_findings").select("*").eq("pool_id",currentPool.id);
+  if(error) throw error;
+  const {data:locations,error:locError}=await supabase.from("basin_finding_locations").select("*").eq("pool_id",currentPool.id);
+  if(locError) throw locError;
+  const byFinding=new Map();
+  for(const loc of locations||[]){
+    const key=String(loc.basin_finding_id);
+    if(!byFinding.has(key)) byFinding.set(key,[]);
+    byFinding.get(key).push(loc.location);
+  }
+  return (findings||[]).map(f=>({...f,locations:byFinding.get(String(f.id))||[]}));
+}
+
+function basinFindingText(f){
+  const locs=(f.locations||[]).map(x=>BASIN_LOCATION_LABELS[x]||x).join(", ");
+  return [BASIN_APPEARANCE_LABELS[f.appearance]||f.appearance,BASIN_BEHAVIOR_LABELS[f.behavior]||f.behavior,locs].filter(Boolean).join(" · ");
+}
+
+function attachBasinFindings(records,findings){
+  const byEvent=new Map();
+  for(const f of findings){
+    const key=String(f.event_id);
+    if(!byEvent.has(key)) byEvent.set(key,[]);
+    byEvent.get(key).push(f);
+  }
+  for(const r of records){
+    const items=byEvent.get(String(r._id))||[];
+    r._basinFindings=items;
+    r["Beckenbefund"]=items.map(basinFindingText).join(" | ");
+  }
+  return records;
+}
+
+async function replaceBasinFindings(eventId,findings){
+  const {error:delError}=await supabase.from("basin_findings").delete().eq("pool_id",currentPool.id).eq("event_id",eventId);
+  if(delError) throw delError;
+  for(const f of findings||[]){
+    const {data,error}=await supabase.from("basin_findings").insert({
+      pool_id:currentPool.id,event_id:eventId,appearance:f.appearance,behavior:f.behavior
+    }).select("id").single();
+    if(error) throw error;
+    const locs=[...new Set(f.locations||[])];
+    if(locs.length){
+      const rows=locs.map(location=>({pool_id:currentPool.id,basin_finding_id:data.id,location}));
+      const {error:locError}=await supabase.from("basin_finding_locations").insert(rows);
+      if(locError) throw locError;
+    }
+  }
+}
+
+function createBasinFindingRow(value={}){
+  const row=document.createElement("div"); row.className="basin-finding-row";
+  const appearance=document.createElement("select"); appearance.className="basin-appearance";
+  for(const [v,label] of Object.entries(BASIN_APPEARANCE_LABELS)){ const o=document.createElement("option"); o.value=v;o.textContent=label;appearance.append(o); }
+  appearance.value=value.appearance||"gray_brown";
+  const behavior=document.createElement("select"); behavior.className="basin-behavior";
+  for(const [v,label] of Object.entries(BASIN_BEHAVIOR_LABELS)){ const o=document.createElement("option"); o.value=v;o.textContent=label;behavior.append(o); }
+  behavior.value=value.behavior||"dispersible";
+  const top=document.createElement("div"); top.className="two-col";
+  const la=document.createElement("label");la.className="field";la.innerHTML="<span>Erscheinung</span>";la.append(appearance);
+  const lb=document.createElement("label");lb.className="field";lb.innerHTML="<span>Verhalten</span>";lb.append(behavior);top.append(la,lb);
+  const places=document.createElement("div");places.className="basin-location-list";
+  const selected=new Set(value.locations||[]);
+  for(const [v,label] of Object.entries(BASIN_LOCATION_LABELS)){
+    const lab=document.createElement("label");lab.className="mini-check";
+    const inp=document.createElement("input");inp.type="checkbox";inp.value=v;inp.checked=selected.has(v);
+    lab.append(inp,document.createTextNode(label));places.append(lab);
+  }
+  const del=document.createElement("button");del.type="button";del.className="text-btn delete-config";del.textContent="Auffälligkeit entfernen";del.addEventListener("click",()=>row.remove());
+  row.append(top,places,del);return row;
+}
+
+function renderBasinFindingsEditor(findings=[]){
+  const box=$("basinFindingRows"); if(!box) return;
+  box.replaceChildren(...(findings||[]).map(createBasinFindingRow));
+  if((findings||[]).length===0) box.append(createBasinFindingRow());
+}
+
+function collectBasinFindings(){
+  if(!$("HasBasinFinding")?.checked) return [];
+  return [...document.querySelectorAll(".basin-finding-row")].map(row=>({
+    appearance:row.querySelector(".basin-appearance")?.value||"",
+    behavior:row.querySelector(".basin-behavior")?.value||"",
+    locations:[...row.querySelectorAll('.basin-location-list input:checked')].map(x=>x.value)
+  }));
+}
+
 function poolToMasterData(pool){
   return {
     poolName:pool.name ?? "Mein Pool",
@@ -504,8 +813,13 @@ async function getAllRecords(){
     if(!data || data.length<pageSize) break;
   }
   const records=rows.map(eventFromDb);
-  const assignments=await getCleaningAssignments();
-  return attachCleaningAssignments(records,assignments);
+  const [assignments,waterCare,basinFindings]=await Promise.all([
+    getCleaningAssignments(),getWaterCareDetails(),getBasinFindings()
+  ]);
+  attachCleaningAssignments(records,assignments);
+  attachWaterCareDetails(records,waterCare);
+  attachBasinFindings(records,basinFindings);
+  return records;
 }
 
 async function getRecord(id){
@@ -518,8 +832,16 @@ async function getRecord(id){
   if(error) throw error;
   if(!data) return null;
   const record=eventFromDb(data);
-  const assignments=await getCleaningAssignmentsForEvent(id);
-  return attachCleaningAssignments([record],assignments)[0];
+  const [assignments,waterCareRows,basinRows]=await Promise.all([
+    getCleaningAssignmentsForEvent(id),
+    supabase.from("water_care_details").select("*").eq("pool_id",currentPool.id).eq("event_id",id),
+    getBasinFindings()
+  ]);
+  if(waterCareRows.error) throw waterCareRows.error;
+  attachCleaningAssignments([record],assignments);
+  attachWaterCareDetails([record],waterCareRows.data||[]);
+  attachBasinFindings([record],(basinRows||[]).filter(x=>String(x.event_id)===String(id)));
+  return record;
 }
 
 async function addRecord(record){
@@ -530,6 +852,8 @@ async function addRecord(record){
     .single();
   if(error) throw error;
   if(record.Aktion==="Reinigung") await replaceCleaningAssignments(data.id,record._cleaningTypeIds||[]);
+  await replaceWaterCareDetail(data.id,record._waterCare||null);
+  await replaceBasinFindings(data.id,record._basinFindings||[]);
   return data.id;
 }
 
@@ -542,6 +866,9 @@ async function putRecord(record){
     .eq("pool_id",currentPool.id);
   if(error) throw error;
   if(record.Aktion==="Reinigung") await replaceCleaningAssignments(record._id,record._cleaningTypeIds||[]);
+  else await replaceCleaningAssignments(record._id,[]);
+  await replaceWaterCareDetail(record._id,record._waterCare||null);
+  await replaceBasinFindings(record._id,record._basinFindings||[]);
 }
 
 async function deleteRecord(id){
@@ -754,6 +1081,10 @@ function setDefaults(){
   editingId=null;
   $("saveBtn").textContent="Speichern";
   $("cancelEditBtn").classList.add("hidden");
+  $("productForm")?.classList.add("hidden");
+  if($("HasBasinFinding")) $("HasBasinFinding").checked=false;
+  $("basinFindingsEditor")?.classList.add("hidden");
+  renderBasinFindingsEditor([]);
   for(const [prefix] of stateIds()){
     const s=$(prefix+"_state");
     if(s){ s.dataset.touched="0"; setStateUI(prefix,"",false); }
@@ -762,12 +1093,55 @@ function setDefaults(){
   updateElapsedSinceMeasurement();
 }
 
+function updateWaterExchangeUI(){
+  const method=valueOf("WaterExchangeMethod");
+  const care=careActionFromSelection(valueOf("Aktion"));
+  $("partialExchangeWaterlines")?.classList.toggle("hidden",care!=="water_exchange_partial");
+  $("directVolumeFields")?.classList.toggle("hidden",method!=="direct_volume");
+  $("meterFields")?.classList.toggle("hidden",method!=="water_meter");
+}
+
+async function prefillPartialExchangeWaterline(){
+  if(!currentPool || careActionFromSelection(valueOf("Aktion"))!=="water_exchange_partial") return;
+  if(valueOf("WaterlineBeforeMm")!=="") return;
+  const {data,error}=await supabase
+    .from("events")
+    .select("waterline_mm,event_date,event_time,action")
+    .eq("pool_id",currentPool.id)
+    .not("waterline_mm","is",null)
+    .order("event_date",{ascending:false})
+    .order("event_time",{ascending:false})
+    .limit(1)
+    .maybeSingle();
+  if(error) return;
+  const hint=$("waterlinePrefillHint");
+  if(data && data.waterline_mm!==null && data.waterline_mm!==undefined){
+    $("WaterlineBeforeMm").value=String(data.waterline_mm);
+    if(hint) hint.textContent=`Zuletzt erfasste Wasserlinie (${data.event_date}${data.event_time ? " · "+String(data.event_time).slice(0,5) : ""}): ${data.waterline_mm} mm. Bitte vor dem Ablassen prüfen bzw. korrigieren.`;
+  } else if(hint){
+    hint.textContent="Keine frühere Wasserlinie gefunden. Bitte den aktuellen Wert vor dem Ablassen eintragen.";
+  }
+}
+
 function updateActionUI(){
-  const action=$("Aktion").value;
+  const action=valueOf("Aktion");
+  const care=careActionFromSelection(action);
+  const isCare=!!care;
+  const isExchange=care==="water_exchange_partial" || care==="water_exchange_full";
   $("measurementBlock").classList.toggle("hidden", action!=="Messung");
   $("chlorBlock").classList.toggle("hidden", action!=="Chlorung");
   $("cleaningBlock").classList.toggle("hidden", action!=="Reinigung");
   $("otherBlock").classList.toggle("hidden", action!=="Wasserfüllung");
+  $("waterCareBlock").classList.toggle("hidden", !isCare);
+  if(isCare){
+    $("waterCareTitle").textContent=CARE_ACTION_LABELS[care]||"Wasserpflege";
+    $("productCareFields").classList.toggle("hidden",isExchange);
+    $("waterExchangeFields").classList.toggle("hidden",!isExchange);
+    // Die drei Wasserlinien sind beim Teilwasseraustausch Primärdaten.
+    // Zusätzliche Mengenermittlung ist optional und bleibt standardmäßig leer.
+    renderProductSelect();
+    updateWaterExchangeUI();
+  }
 }
 
 function valueOf(id){
@@ -781,32 +1155,83 @@ function numericValueOf(id){
   return raw.replaceAll("−","-").replace(",",".");
 }
 function buildRecord(){
-  const action=valueOf("Aktion");
+  const actionSelection=valueOf("Aktion");
+  const careAction=careActionFromSelection(actionSelection);
   const rec={};
   HEADERS.forEach(h=>rec[h]="");
   rec["Kürzel"]=valueOf("Kürzel");
   rec["Datum"]=valueOf("Datum");
   rec["Uhrzeit"]=valueOf("Uhrzeit");
-  rec["Aktion"]=action;
+  rec["Aktion"]=careAction ? "Wasserpflege" : actionSelection;
   rec["Notiz"]=valueOf("Notiz");
 
-  if(action==="Messung"){
+  if(actionSelection==="Messung"){
     for(const h of ["Innendach","fCl_Status","Wasseroptik"]) rec[h]=valueOf(h);
     for(const h of ["Wasserlinie","Wassertemperatur","Außentemperatur","fCl","CYA","TA","pH"]) rec[h]=numericValueOf(h);
     rec["Dach_Offen_h"]=intervalValueFromState("Dach_Offen");
     rec["Badebetrieb_h"]=intervalValueFromState("Badebetrieb");
     rec["Chlorschwimmer_h"]=intervalValueFromState("Chlorschwimmer");
     rec["Pumpe_h"]=intervalValueFromState("Pumpe");
-  } else if(action==="Chlorung"){
+    rec._basinFindings=collectBasinFindings();
+  } else if(actionSelection==="Chlorung"){
     rec["CHC_g"]=numericValueOf("CHC_g");
-  } else if(action==="Reinigung"){
+  } else if(actionSelection==="Reinigung"){
     rec._cleaningTypeIds=selectedCleaningTypeIds();
     rec["Reinigungsarten"]=rec._cleaningTypeIds
       .map(id=>cleaningTypes.find(x=>String(x.id)===String(id))?.name)
       .filter(Boolean)
       .join(" | ");
-  } else if(action==="Wasserfüllung"){
+  } else if(actionSelection==="Wasserfüllung"){
     rec["Wasserlinie"]=numericValueOf("WasserlinieOther");
+  } else if(careAction){
+    const isExchange=careAction==="water_exchange_partial" || careAction==="water_exchange_full";
+    if(isExchange){
+      const method=valueOf("WaterExchangeMethod");
+      const isPartial=careAction==="water_exchange_partial";
+      const waterlineBefore=isPartial ? nullableNumber(valueOf("WaterlineBeforeMm")) : null;
+      const waterlineAfterDrain=isPartial ? nullableNumber(valueOf("WaterlineAfterDrainMm")) : null;
+      const waterlineAfterRefill=isPartial ? nullableNumber(valueOf("WaterlineAfterRefillMm")) : null;
+      const directAmount=method==="direct_volume" ? nullableNumber(valueOf("WaterExchangeAmount")) : null;
+      const directUnit=method==="direct_volume" ? nullableText(valueOf("WaterExchangeUnit")) : null;
+      const addedDirectAmount=method==="direct_volume" ? nullableNumber(valueOf("WaterExchangeAddedAmount")) : null;
+      const addedDirectUnit=method==="direct_volume" ? nullableText(valueOf("WaterExchangeAddedUnit")) : null;
+      const meterBefore=method==="water_meter" ? nullableNumber(valueOf("MeterBefore")) : null;
+      const meterAfter=method==="water_meter" ? nullableNumber(valueOf("MeterAfter")) : null;
+      const removedLiters=(method==="direct_volume" && Number.isFinite(directAmount)) ? (directUnit==="m3" ? directAmount*1000 : directAmount) : null;
+      let addedLiters=null;
+      if(method==="direct_volume" && Number.isFinite(addedDirectAmount)) addedLiters=addedDirectUnit==="m3" ? addedDirectAmount*1000 : addedDirectAmount;
+      if(method==="water_meter" && Number.isFinite(meterBefore) && Number.isFinite(meterAfter) && meterAfter>meterBefore) addedLiters=(meterAfter-meterBefore)*1000;
+      // level_change_cm bleibt ausschließlich für bereits vorhandene Legacy-Datensätze erhalten.
+      const legacyLevelChangeCm=null;
+      if(isPartial && Number.isFinite(waterlineAfterRefill)) rec["Wasserlinie"]=String(waterlineAfterRefill);
+      rec._waterCare={
+        care_action:careAction,
+        product_id:null,
+        amount:directAmount,
+        unit:directUnit,
+        water_exchange_method:method || null,
+        meter_before_m3:meterBefore,
+        meter_after_m3:meterAfter,
+        level_change_cm:legacyLevelChangeCm,
+        calculated_volume_l:null,
+        waterline_before_mm:waterlineBefore,
+        waterline_after_drain_mm:waterlineAfterDrain,
+        waterline_after_refill_mm:waterlineAfterRefill,
+        removed_volume_l:removedLiters,
+        added_volume_l:addedLiters
+      };
+    }else{
+      rec._waterCare={
+        care_action:careAction,
+        product_id:valueOf("WaterCareProduct") || null,
+        amount:nullableNumber(valueOf("WaterCareAmount")),
+        unit:valueOf("WaterCareUnit") || null,
+        water_exchange_method:null,
+        meter_before_m3:null,meter_after_m3:null,level_change_cm:null,calculated_volume_l:null,
+        waterline_before_mm:null,waterline_after_drain_mm:null,waterline_after_refill_mm:null,
+        removed_volume_l:null,added_volume_l:null
+      };
+    }
   }
   if(editingId!==null) rec._id=editingId;
   return rec;
@@ -817,6 +1242,25 @@ function validateRecord(rec){
   if(!rec.Aktion) return "Aktion fehlt.";
   if(rec.Aktion==="Reinigung" && (!rec._cleaningTypeIds || rec._cleaningTypeIds.length===0)) return "Bitte mindestens eine Reinigungsart auswählen.";
   if(rec.Aktion==="Chlorung" && rec.CHC_g!=="" && Number(rec.CHC_g)<0) return "CHC_g darf nicht negativ sein.";
+  if(rec.Aktion==="Wasserpflege"){
+    const d=rec._waterCare;
+    if(!d?.care_action) return "Wasserpflegeaktion fehlt.";
+    const chemical=!!CARE_PRODUCT_TYPES[d.care_action];
+    if(chemical && !d.product_id) return "Bitte ein Produkt auswählen oder anlegen.";
+    if(chemical && (!Number.isFinite(Number(d.amount)) || Number(d.amount)<=0)) return "Bitte eine positive Menge eingeben.";
+    if(chemical && !d.unit) return "Einheit fehlt.";
+    if(d.care_action==="water_exchange_partial"){
+      if(!Number.isFinite(Number(d.waterline_before_mm))) return "Bitte die Wasserlinie vor dem Ablassen eingeben.";
+      if(!Number.isFinite(Number(d.waterline_after_drain_mm))) return "Bitte die Wasserlinie nach dem Ablassen eingeben.";
+      if(!Number.isFinite(Number(d.waterline_after_refill_mm))) return "Bitte die Wasserlinie nach dem Auffüllen eingeben.";
+      if(Number(d.waterline_after_drain_mm)>=Number(d.waterline_before_mm)) return "Die Wasserlinie nach dem Ablassen liegt nicht unter der Ausgangswasserlinie. Bitte Vorzeichen bzw. Eingabe prüfen.";
+      if(Number(d.waterline_after_refill_mm)<=Number(d.waterline_after_drain_mm)) return "Die Wasserlinie nach dem Auffüllen liegt nicht über der Wasserlinie nach dem Ablassen. Bitte Vorzeichen bzw. Eingabe prüfen.";
+    }
+    if(d.water_exchange_method==="direct_volume" && (!Number.isFinite(Number(d.amount)) || Number(d.amount)<=0)) return "Bitte die abgelassene Wassermenge eingeben.";
+    if(d.water_exchange_method==="water_meter" && (!Number.isFinite(Number(d.meter_before_m3)) || !Number.isFinite(Number(d.meter_after_m3)) || Number(d.meter_after_m3)<=Number(d.meter_before_m3))) return "Bitte die Wasseruhrstände prüfen.";
+  }
+  if(rec.Aktion==="Messung" && $("HasBasinFinding")?.checked && (!rec._basinFindings || rec._basinFindings.length===0)) return "Bitte mindestens eine Beckenauffälligkeit erfassen oder die Auswahl deaktivieren.";
+  if(rec._basinFindings?.some(f=>!f.appearance || !f.behavior || !f.locations?.length)) return "Bitte bei jeder Beckenauffälligkeit mindestens einen Ort auswählen.";
   const nonNegative=["fCl","CYA","TA","Dach_Offen_h","Badebetrieb_h","Chlorschwimmer_h","Pumpe_h","CHC_g"];
   for(const k of nonNegative) if(rec[k]!=="" && Number(rec[k])<0) return `${k} darf nicht negativ sein.`;
   if(rec.pH!=="" && (Number(rec.pH)<0 || Number(rec.pH)>14)) return "pH muss zwischen 0 und 14 liegen.";
@@ -836,15 +1280,44 @@ function toast(msg){
 
 function humanSummary(r){
   const bits=[];
-  if(r.Wasserlinie!=="") bits.push(`Wasserlinie ${r.Wasserlinie} mm`);
+  if(r.Aktion==="Wasserpflege" && r._waterCare){
+    const d=r._waterCare;
+    bits.push(CARE_ACTION_LABELS[d.care_action]||"Wasserpflege");
+    if(d.product_name_snapshot) bits.push(`${d.product_manufacturer_snapshot||""} ${d.product_name_snapshot}`.trim());
+    if(d.amount!==null && d.amount!==undefined) bits.push(`${d.amount} ${UNIT_LABELS[d.unit]||d.unit||""}`.trim());
+    if(d.waterline_before_mm!==null && d.waterline_before_mm!==undefined && d.waterline_after_drain_mm!==null && d.waterline_after_drain_mm!==undefined && d.waterline_after_refill_mm!==null && d.waterline_after_refill_mm!==undefined){
+      const signed=v=>{ const n=Number(v); return Number.isFinite(n) && n>0 ? `+${v}` : String(v); };
+      bits.push(`Wasserlinie: vorher ${signed(d.waterline_before_mm)} mm → nach Ablassen ${signed(d.waterline_after_drain_mm)} mm → nach Auffüllen ${signed(d.waterline_after_refill_mm)} mm`);
+    } else if(d.water_exchange_method==="water_level" && d.level_change_cm!==null) {
+      bits.push(`Legacy-Absenkung ${d.level_change_cm} cm`);
+    }
+    if(d.removed_volume_l!==null && d.removed_volume_l!==undefined) bits.push(`${d.removed_volume_l} l entfernt`);
+    if(d.water_exchange_method==="water_meter" && d.meter_before_m3!==null && d.meter_after_m3!==null){
+      const added=d.added_volume_l!==null && d.added_volume_l!==undefined ? ` · ${d.added_volume_l} l zugeführt` : "";
+      bits.push(`Wasseruhr ${d.meter_before_m3} → ${d.meter_after_m3} m³${added}`);
+    } else if(d.added_volume_l!==null && d.added_volume_l!==undefined) {
+      bits.push(`${d.added_volume_l} l zugeführt`);
+    }
+  }
+  if(r.Wasserlinie!=="" && !(r.Aktion==="Wasserpflege" && r._waterCare?.waterline_after_refill_mm!==null && r._waterCare?.waterline_after_refill_mm!==undefined)) bits.push(`Wasserlinie ${r.Wasserlinie} mm`);
   if(r.Wassertemperatur!=="") bits.push(`Wasser ${r.Wassertemperatur} °C`);
+  if(r.Außentemperatur!=="") bits.push(`Außen ${r.Außentemperatur} °C`);
+  if(r.Innendach) bits.push(`Innendach ${r.Innendach}`);
   if(r.fCl!=="") bits.push(`fCl ${r.fCl}`);
   if(r.fCl_Status) bits.push(`fCl ${r.fCl_Status}`);
   if(r.pH!=="") bits.push(`pH ${r.pH}`);
+  if(r.TA!=="") bits.push(`TA ${r.TA}`);
+  if(r.CYA!=="") bits.push(`CYA ${r.CYA}`);
+  if(r.Wasseroptik) bits.push(`Optik ${r.Wasseroptik}`);
+  if(r.Dach_Offen_h!=="") bits.push(`Dach offen ${r.Dach_Offen_h} h`);
+  if(r.Badebetrieb_h!=="") bits.push(`Badebetrieb ${r.Badebetrieb_h} h`);
+  if(r.Pumpe_h!=="") bits.push(`Pumpe ${r.Pumpe_h} h`);
+  if(r.Chlorschwimmer_h!=="") bits.push(`Chlorschwimmer ${r.Chlorschwimmer_h} h`);
   if(r.CHC_g!=="") bits.push(`${r.CHC_g} g CHC`);
   if(r.Reinigungsarten) bits.push(r.Reinigungsarten);
+  if(r.Beckenbefund) bits.push(r.Beckenbefund);
   if(r.Notiz) bits.push(r.Notiz);
-  return bits.slice(0,3).join(" · ") || "Keine weiteren Angaben";
+  return bits.join(" · ") || "Keine weiteren Angaben";
 }
 
 function recordCard(r){
@@ -866,11 +1339,41 @@ function recordCard(r){
   return el;
 }
 
+function measurementCell(value,suffix=""){
+  const td=document.createElement("td");
+  td.textContent=(value===null || value===undefined || String(value)==="") ? "–" : `${value}${suffix}`;
+  return td;
+}
+
+function renderMeasurementHistory(rows){
+  const body=$("measurementHistoryBody");
+  if(!body) return;
+  const historyFields=["fCl","pH","TA","CYA","Wasserlinie","Wassertemperatur","Außentemperatur","Wasseroptik"];
+  const effectiveValue=(r,k)=>{
+    if(k==="Wasserlinie" && r._waterCare?.waterline_after_refill_mm!==null && r._waterCare?.waterline_after_refill_mm!==undefined) return r._waterCare.waterline_after_refill_mm;
+    return r[k];
+  };
+  const measurements=(rows||[])
+    .filter(r=>historyFields.some(k=>{ const v=effectiveValue(r,k); return v!==null && v!==undefined && String(v)!==""; }))
+    .sort(compareRecordsDesc).slice(0,12);
+  if(!measurements.length){
+    const tr=document.createElement("tr"),td=document.createElement("td");td.colSpan=10;td.className="history-empty";td.textContent="Noch keine Messwerte vorhanden.";tr.append(td);body.replaceChildren(tr);return;
+  }
+  body.replaceChildren(...measurements.map(r=>{
+    const tr=document.createElement("tr");
+    tr.append(
+      measurementCell(formatGermanDate(r.Datum)),measurementCell(r.Uhrzeit),measurementCell(r.fCl),measurementCell(r.pH),measurementCell(r.TA),measurementCell(r.CYA),measurementCell(effectiveValue(r,"Wasserlinie"),String(effectiveValue(r,"Wasserlinie")??"")!==""?" mm":""),measurementCell(r.Wassertemperatur,r.Wassertemperatur!==""?" °C":""),measurementCell(r.Außentemperatur,r.Außentemperatur!==""?" °C":""),measurementCell(r.Wasseroptik)
+    );
+    return tr;
+  }));
+}
+
 async function renderLists(){
   let rows=await getAllRecords();
   rows.sort(compareRecordsDesc);
   $("recentList").replaceChildren(...rows.slice(0,7).map(recordCard));
   $("recordCount").textContent=rows.length.toLocaleString("de-DE");
+  renderMeasurementHistory(rows);
   renderAllList(rows);
 }
 
@@ -892,7 +1395,7 @@ async function editRecord(id){
   editingId=id;
   $("saveBtn").textContent="Änderung speichern";
   $("cancelEditBtn").classList.remove("hidden");
-  $("Aktion").value=r.Aktion || "Messung";
+  $("Aktion").value=actionSelectionForRecord(r);
   $("Datum").value=r.Datum || localDateString();
   $("Uhrzeit").value=r.Uhrzeit || "";
   $("Kürzel").value=r.Kürzel ?? "";
@@ -909,6 +1412,30 @@ async function editRecord(id){
     renderCleaningTypeSelect(ids);
   }
   if(r.Aktion==="Wasserfüllung") $("WasserlinieOther").value=r.Wasserlinie??"";
+  if(r.Aktion==="Wasserpflege" && r._waterCare){
+    const d=r._waterCare;
+    renderProductSelect(d.product_id||"");
+    if($("WaterCareProduct")) $("WaterCareProduct").value=d.product_id||"";
+    if($("WaterCareAmount")) $("WaterCareAmount").value=d.amount??"";
+    if($("WaterCareUnit")) $("WaterCareUnit").value=d.unit||"g";
+    if($("WaterExchangeMethod")) $("WaterExchangeMethod").value=d.water_exchange_method||"";
+    if($("WaterExchangeAmount")) $("WaterExchangeAmount").value=d.amount??"";
+    if($("WaterExchangeUnit")) $("WaterExchangeUnit").value=d.unit||"l";
+    if($("MeterBefore")) $("MeterBefore").value=d.meter_before_m3??"";
+    if($("MeterAfter")) $("MeterAfter").value=d.meter_after_m3??"";
+    if($("LevelChangeCm")) $("LevelChangeCm").value=d.level_change_cm??"";
+    if($("WaterlineBeforeMm")) $("WaterlineBeforeMm").value=d.waterline_before_mm??"";
+    if($("WaterlineAfterDrainMm")) $("WaterlineAfterDrainMm").value=d.waterline_after_drain_mm??"";
+    if($("WaterlineAfterRefillMm")) $("WaterlineAfterRefillMm").value=d.waterline_after_refill_mm??"";
+    if($("WaterExchangeAddedAmount")) $("WaterExchangeAddedAmount").value=d.added_volume_l??"";
+    if($("WaterExchangeAddedUnit")) $("WaterExchangeAddedUnit").value="l";
+    updateWaterExchangeUI();
+  }
+  if(r.Aktion==="Messung" && (r._basinFindings||[]).length){
+    $("HasBasinFinding").checked=true;
+    $("basinFindingsEditor").classList.remove("hidden");
+    renderBasinFindingsEditor(r._basinFindings);
+  }
   await updateElapsedSinceMeasurement();
 
   for(const [prefix] of stateIds()){
@@ -976,13 +1503,15 @@ async function exportJSON(){
   const rows=await getAllRecords();
   rows.sort(compareRecordsAsc);
   const masterData=await getMasterData();
+  await loadProducts();
   download(
     JSON.stringify({
-      version:2,
+      version:3,
       appVersion:APP_VERSION,
       exportedAt:new Date().toISOString(),
       headers:HEADERS,
       masterData,
+      products,
       records:rows
     },null,2),
     `PoolLog_Backup_${localDateString()}.json`,
@@ -1019,7 +1548,7 @@ document.querySelectorAll(".step-btn").forEach(btn=>{
   });
 });
 
-for(const id of ["Wasserlinie","WasserlinieOther","Wassertemperatur","Außentemperatur"]){
+for(const id of ["Wasserlinie","WasserlinieOther","Wassertemperatur","Außentemperatur","WaterlineBeforeMm","WaterlineAfterDrainMm","WaterlineAfterRefillMm"]){
   $(id).addEventListener("input",e=>{
     e.target.value=e.target.value.replaceAll("−","-");
   });
@@ -1046,7 +1575,23 @@ form.addEventListener("submit",async e=>{
 $("Aktion").addEventListener("change",async()=>{
   updateActionUI();
   if(valueOf("Aktion")==="Messung") await updateElapsedSinceMeasurement();
+  if(careActionFromSelection(valueOf("Aktion"))==="water_exchange_partial") await prefillPartialExchangeWaterline();
 });
+$("WaterCareProduct")?.addEventListener("change",updateUnitFromProduct);
+$("WaterExchangeMethod")?.addEventListener("change",updateWaterExchangeUI);
+$("toggleProductFormBtn")?.addEventListener("click",()=>$("productForm").classList.toggle("hidden"));
+$("cancelProductBtn")?.addEventListener("click",()=>$("productForm").classList.add("hidden"));
+$("saveProductBtn")?.addEventListener("click",()=>createProductFromForm().catch(showError));
+$("manageProductsBtn")?.addEventListener("click",openProductManager);
+$("closeProductManagerBtn")?.addEventListener("click",closeProductManager);
+document.addEventListener("keydown",e=>{ if(e.key==="Escape" && !$("productManager")?.classList.contains("hidden")) closeProductManager(); });
+$("saveProductEditBtn")?.addEventListener("click",()=>saveProductEdit().catch(showError));
+$("cancelProductEditBtn")?.addEventListener("click",()=>$("productEditForm")?.classList.add("hidden"));
+$("HasBasinFinding")?.addEventListener("change",e=>{
+  $("basinFindingsEditor").classList.toggle("hidden",!e.target.checked);
+  if(e.target.checked && !$("basinFindingRows").children.length) renderBasinFindingsEditor([]);
+});
+$("addBasinFindingBtn")?.addEventListener("click",()=>$("basinFindingRows").append(createBasinFindingRow()));
 $("Datum").addEventListener("change",updateElapsedSinceMeasurement);
 $("Uhrzeit").addEventListener("change",updateElapsedSinceMeasurement);
 for(const [prefix] of stateIds()){
@@ -1187,7 +1732,7 @@ async function startAuthenticatedApp(){
   $("logoutBtn").classList.remove("hidden");
   switchView("entryView");
   updateHeader();
-  await loadCleaningTypes();
+  await Promise.all([loadCleaningTypes(),loadProducts()]);
   setDefaults();
   $("exportFrom").value=localDateString();
   $("exportTo").value=localDateString();
@@ -1348,6 +1893,7 @@ async function refreshCentralData({force=false}={}){
 
   try{
     await reloadCurrentPool();
+    await loadProducts();
     await renderLists();
     await updateElapsedSinceMeasurement();
     await updateRangeExportInfo();

@@ -75,11 +75,20 @@
           <label class="field">
             <span>Aktion</span>
             <select id="Aktion" name="Aktion">
-              <option>Messung</option>
-              <option>Chlorung</option>
-              <option>Wasserfüllung</option>
-              <option>Rückspülung</option>
-              <option>Reinigung</option>
+              <option value="Messung">Messung</option>
+              <optgroup label="Wasserpflege">
+                <option value="Wasserpflege:chlor_add">Chlor zufügen</option>
+                <option value="Wasserpflege:ph_lower">pH senken</option>
+                <option value="Wasserpflege:ph_raise">pH erhöhen</option>
+                <option value="Wasserpflege:ta_lower">TA senken</option>
+                <option value="Wasserpflege:ta_raise">TA erhöhen</option>
+                <option value="Wasserpflege:water_exchange_partial">Teilwasseraustausch</option>
+                <option value="Wasserpflege:water_exchange_full">Vollständiger Wasseraustausch</option>
+              </optgroup>
+              <option value="Wasserfüllung">Wasserfüllung</option>
+              <option value="Rückspülung">Rückspülung</option>
+              <option value="Reinigung">Reinigung</option>
+              <option value="Chlorung" hidden>Chlorung (Altbestand)</option>
             </select>
           </label>
           <div class="two-col">
@@ -108,11 +117,102 @@
         </div>
 
         <div id="chlorBlock" class="card action-block hidden">
-          <h2>Chlorung</h2>
+          <h2>Chlorung – Altbestand</h2>
+          <p class="hint">Dieser Eingabeblock dient ausschließlich zum Bearbeiten vorhandener CHC-Datensätze.</p>
           <label class="field focus-field">
             <span>CHC in Gramm</span>
             <input id="CHC_g" name="CHC_g" type="number" min="0" step="0.1" inputmode="decimal" placeholder="z. B. 25">
           </label>
+        </div>
+
+        <div id="waterCareBlock" class="card action-block hidden">
+          <h2 id="waterCareTitle">Wasserpflege</h2>
+          <div id="productCareFields">
+            <label class="field">
+              <span>Produkt</span>
+              <select id="WaterCareProduct"></select>
+            </label>
+            <div class="inline-actions product-buttons"><button id="toggleProductFormBtn" class="secondary compact-btn" type="button">+ Produkt hinzufügen</button><button id="manageProductsBtn" class="secondary compact-btn" type="button">Produkte verwalten</button></div>
+            <div class="two-col water-care-dose">
+              <label class="field">
+                <span>Menge</span>
+                <input id="WaterCareAmount" type="number" min="0" step="0.01" inputmode="decimal">
+              </label>
+              <label class="field">
+                <span>Einheit</span>
+                <select id="WaterCareUnit">
+                  <option value="g">g</option><option value="kg">kg</option><option value="ml">ml</option><option value="l">l</option><option value="piece">Stück</option>
+                </select>
+              </label>
+            </div>
+          </div>
+
+          <div id="waterExchangeFields" class="hidden">
+            <div id="partialExchangeWaterlines" class="hidden">
+              <p class="hint"><strong>Wasserlinien beim Teilwasseraustausch</strong><br>Die Werte beziehen sich auf Deine individuelle 0-Marke. Damit bleiben Ausgangsfüllstand, entferntes Poolwasser und Endfüllstand getrennt nachvollziehbar.</p>
+              <div class="three-col waterline-exchange-grid">
+                <label class="field"><span>Vor Ablassen <small>mm</small></span><input id="WaterlineBeforeMm" type="text" inputmode="decimal" placeholder="z. B. +3" autocomplete="off"></label>
+                <label class="field"><span>Nach Ablassen <small>mm</small></span><input id="WaterlineAfterDrainMm" type="text" inputmode="decimal" placeholder="z. B. -250" autocomplete="off"></label>
+                <label class="field"><span>Nach Auffüllen <small>mm</small></span><input id="WaterlineAfterRefillMm" type="text" inputmode="decimal" placeholder="z. B. -2" autocomplete="off"></label>
+              </div>
+              <p id="waterlinePrefillHint" class="hint"></p>
+            </div>
+
+            <label class="field">
+              <span>Zusätzliche Mengenermittlung</span>
+              <select id="WaterExchangeMethod">
+                <option value="">Keine zusätzliche Mengenmessung</option>
+                <option value="direct_volume">Abgelassenes Wasser gemessen</option>
+                <option value="water_meter">Zugeführtes Frischwasser über Wasseruhr gemessen</option>
+              </select>
+            </label>
+            <div id="directVolumeFields" class="hidden">
+              <div class="two-col">
+                <label class="field"><span>Abgelassenes Poolwasser</span><input id="WaterExchangeAmount" type="number" min="0" step="0.01" inputmode="decimal"></label>
+                <label class="field"><span>Einheit</span><select id="WaterExchangeUnit"><option value="l">l</option><option value="m3">m³</option></select></label>
+              </div>
+              <div class="two-col">
+                <label class="field"><span>Zugeführtes Frischwasser <small>optional</small></span><input id="WaterExchangeAddedAmount" type="number" min="0" step="0.01" inputmode="decimal"></label>
+                <label class="field"><span>Einheit</span><select id="WaterExchangeAddedUnit"><option value="l">l</option><option value="m3">m³</option></select></label>
+              </div>
+            </div>
+            <div id="meterFields" class="two-col hidden">
+              <label class="field"><span>Wasseruhr vor Auffüllen <small>m³</small></span><input id="MeterBefore" type="number" min="0" step="0.001" inputmode="decimal"></label>
+              <label class="field"><span>Wasseruhr nach Auffüllen <small>m³</small></span><input id="MeterAfter" type="number" min="0" step="0.001" inputmode="decimal"></label>
+            </div>
+            <input id="LevelChangeCm" type="hidden">
+          </div>
+
+          <div id="productForm" class="product-form hidden">
+            <h3>Produkt anlegen</h3>
+            <label class="field"><span>Hersteller</span><input id="ProductManufacturer" type="text" maxlength="120"></label>
+            <label class="field"><span>Produktname</span><input id="ProductName" type="text" maxlength="160"></label>
+            <div class="two-col">
+              <label class="field"><span>Darreichungsform</span><select id="ProductForm"><option value="granulate">Granulat</option><option value="powder">Pulver</option><option value="liquid">Flüssigkeit</option><option value="tablet">Tablette</option><option value="stick">Stick</option><option value="cartridge">Kartusche</option></select></label>
+              <label class="field"><span>Standard-Einheit</span><select id="ProductUnit"><option value="g">g</option><option value="kg">kg</option><option value="ml">ml</option><option value="l">l</option><option value="piece">Stück</option></select></label>
+            </div>
+            <div class="inline-actions"><button id="saveProductBtn" class="primary" type="button">Produkt speichern</button><button id="cancelProductBtn" class="secondary" type="button">Abbrechen</button></div>
+          </div>
+
+          <div id="productManager" class="product-manager-modal hidden" role="dialog" aria-modal="true" aria-labelledby="productManagerTitle">
+            <div class="product-manager-panel">
+            <div class="product-manager-header"><h3 id="productManagerTitle">Produkte verwalten</h3><button id="closeProductManagerBtn" class="product-manager-close" type="button" aria-label="Produktverwaltung schließen">×</button></div>
+            <p class="hint">Produkte können korrigiert oder deaktiviert werden. Historische Wasserpflege-Einträge behalten ihre damals gespeicherten Produktangaben.</p>
+            <div id="productManagerList" class="product-manager-list"></div>
+            <div id="productEditForm" class="product-edit-form hidden">
+              <input id="EditProductId" type="hidden">
+              <h3>Produkt bearbeiten</h3>
+              <label class="field"><span>Hersteller</span><input id="EditProductManufacturer" type="text" maxlength="120"></label>
+              <label class="field"><span>Produktname</span><input id="EditProductName" type="text" maxlength="160"></label>
+              <div class="two-col">
+                <label class="field"><span>Mittelart</span><select id="EditProductType"><option value="chlorine">Chlorpräparat</option><option value="ph_minus">pH-Senker</option><option value="ph_plus">pH-Heber</option><option value="ta_minus">TA-Senker</option><option value="ta_plus">TA-Heber</option></select></label>
+                <label class="field"><span>Darreichungsform</span><select id="EditProductForm"><option value="granulate">Granulat</option><option value="powder">Pulver</option><option value="liquid">Flüssigkeit</option><option value="tablet">Tablette</option><option value="stick">Stick</option><option value="cartridge">Kartusche</option></select></label>
+              </div>
+              <label class="field"><span>Standard-Einheit</span><select id="EditProductUnit"><option value="g">g</option><option value="kg">kg</option><option value="ml">ml</option><option value="l">l</option><option value="piece">Stück</option></select></label>
+              <div class="inline-actions product-edit-actions"><button id="saveProductEditBtn" class="primary" type="button">Produkt speichern</button><button id="cancelProductEditBtn" class="secondary" type="button">Abbrechen</button></div>
+            </div>
+            </div>
+          </div>
         </div>
 
         <div id="measurementBlock" class="card action-block">
@@ -189,6 +289,14 @@
               <option>milchig</option>
             </select>
           </label>
+
+          <div class="basin-observation">
+            <label class="field checkbox-field"><input id="HasBasinFinding" type="checkbox"><span>Beckenauffälligkeit festgestellt</span></label>
+            <div id="basinFindingsEditor" class="hidden">
+              <div id="basinFindingRows"></div>
+              <button id="addBasinFindingBtn" class="secondary compact-btn" type="button">+ Weitere Auffälligkeit</button>
+            </div>
+          </div>
 
           <details class="intervals" open>
             <summary>Zeitraum seit der vorherigen Messung</summary>
@@ -295,6 +403,19 @@
           <button id="saveBtn" class="primary" type="submit">Speichern</button>
         </div>
       </form>
+
+      <section class="measurement-history card">
+        <div class="section-title measurement-history-title">
+          <h2>Messwert-Historie</h2>
+          <span class="hint">Letzte Messungen im direkten Vergleich</span>
+        </div>
+        <div class="measurement-table-wrap">
+          <table class="measurement-table">
+            <thead><tr><th>Datum</th><th>Zeit</th><th>fCl</th><th>pH</th><th>TA</th><th>CYA</th><th>Wasserlinie</th><th>Wasser °C</th><th>Außen °C</th><th>Optik</th></tr></thead>
+            <tbody id="measurementHistoryBody"></tbody>
+          </table>
+        </div>
+      </section>
 
       <section class="recent">
         <div class="section-title">

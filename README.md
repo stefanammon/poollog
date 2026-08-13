@@ -1,6 +1,6 @@
 # FreePoolLog4U Mini
 
-**Aktuelle Version: 1.0.0-beta.4**
+**Aktuelle Version: 1.0.0-beta.5**
 
 Pilotversion für einen geschlossenen externen Betatest mit bis zu 20 Personen.
 
@@ -50,6 +50,16 @@ Pilotversion für einen geschlossenen externen Betatest mit bis zu 20 Personen.
 - fehlendes PWA-Icon im Release-Paket ergänzt
 - Registrierung mit eindeutiger Eingabehilfe und sichtbarem Wartezustand
 - Reinigungsarten pro Pool frei konfigurierbar; keine Sammelkategorien
+
+### 1.0.0-beta.5
+- Wasserpflege als strukturierte Aktionen mit Produkt, Menge und Einheit
+- benutzereigener Produktkatalog mit Bearbeiten sowie Aktivieren/Deaktivieren
+- historische Produkt-Snapshots bleiben bei späteren Stammdatenänderungen unverändert
+- Teilwasseraustausch mit Wasserlinie vor Ablassen, nach Ablassen und nach Auffüllen
+- Plausibilitätsprüfung und direkte Eingabe negativer Wasserlinienwerte
+- strukturierte Beckenbefunde mit mehreren Befunden und mehreren Fundorten je Ereignis
+- Messwert-Historie zeigt vorhandene Zustandswerte unabhängig vom Ereignistyp
+- CSV- und JSON-Export um Wasserpflege, Produkte, Wasseraustausch und Beckenbefunde erweitert
 
 ## Bewusst noch nicht enthalten
 

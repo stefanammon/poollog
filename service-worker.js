@@ -1,5 +1,5 @@
 importScripts("./version.js");
-const CACHE=`poollog-mini-${self.FPL_VERSION || "dev"}-multiclean-1`;
+const CACHE=`poollog-mini-${self.FPL_VERSION || "dev"}`;
 const ASSETS=["./","./index.html","./styles.css","./version.js","./app.js","./manifest.webmanifest","./icon.svg"];
 
 self.addEventListener("install",event=>{

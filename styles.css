@@ -274,3 +274,69 @@ button:disabled{opacity:.62;cursor:wait}
 .cleaning-choice input{width:20px;height:20px;flex:0 0 auto;margin:0}
 .cleaning-choice span{font-weight:600}
 .cleaning-choice:has(input:checked){outline:2px solid rgba(24,105,170,.18);border-color:#4d96cf}
+
+/* Wasserpflege, Produktanlage, Beckenbefunde und Messhistorie */
+.compact-btn{width:auto;min-height:42px;padding:9px 13px;margin:2px 0 12px}
+.water-care-dose{margin-top:12px}
+.product-form{margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+.product-form h3{margin:0 0 12px;color:var(--brand);font-size:1rem}
+.inline-actions{display:flex;gap:8px;flex-wrap:wrap}.inline-actions button{flex:1 1 150px}
+.checkbox-field{display:flex;flex-direction:row!important;align-items:center;gap:10px}
+.checkbox-field input{width:20px;height:20px;margin:0;flex:0 0 auto}
+.basin-observation{margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+.basin-finding-row{padding:12px;margin:10px 0;border:1px solid var(--line);border-radius:12px;background:#f8fbfd}
+.basin-location-list{display:flex;gap:8px;flex-wrap:wrap;margin:3px 0 8px}
+.mini-check{display:flex;align-items:center;gap:6px;padding:8px 10px;border:1px solid #cad7df;border-radius:999px;background:#fff;font-size:.84rem;font-weight:650}
+.mini-check input{width:17px;height:17px;margin:0}.mini-check:has(input:checked){border-color:#4d96cf;background:#edf7fd}
+.measurement-history{margin-top:16px;padding:0;overflow:hidden}
+.measurement-history-title{padding:14px 14px 8px;margin:0;align-items:flex-end;gap:8px;flex-wrap:wrap}
+.measurement-history-title h2{margin:0}.measurement-history-title .hint{margin:0}
+.measurement-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border-top:1px solid var(--line)}
+.measurement-table{width:100%;border-collapse:collapse;min-width:830px;font-size:.82rem;background:#fff}
+.measurement-table th,.measurement-table td{padding:9px 10px;text-align:right;border-bottom:1px solid #e6edf2;white-space:nowrap}
+.measurement-table th{position:sticky;top:0;background:#eef5fa;color:#365267;font-weight:800}
+.measurement-table th:first-child,.measurement-table td:first-child{text-align:left;position:sticky;left:0;background:inherit}
+.measurement-table tbody tr:nth-child(even){background:#f9fbfc}
+.measurement-table tbody tr:hover{background:#eef7fd}.history-empty{text-align:center!important;color:var(--muted);padding:18px!important}
+@media(max-width:520px){.measurement-history{margin-left:-2px;margin-right:-2px}.basin-location-list{gap:6px}.mini-check{font-size:.8rem;padding:7px 9px}}
+
+/* Water-exchange test refinement: three waterline states */
+.three-col{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+@media (max-width:760px){.three-col{grid-template-columns:1fr}}
+
+/* Product management */
+.product-buttons{margin-top:8px}
+.product-manager-list{display:flex;flex-direction:column;gap:9px;margin-top:10px}
+.product-manager-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+.product-manager-row:last-child{border-bottom:0}
+.product-manager-info{display:flex;flex-direction:column;gap:3px;min-width:0}
+.product-manager-info strong{overflow-wrap:anywhere}
+.product-manager-info span{font-size:.86rem;color:var(--muted)}
+.product-manager-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.product-inactive{opacity:.65}
+.product-edit-form{margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+@media (max-width:620px){.product-manager-row{align-items:flex-start;flex-direction:column}.product-manager-actions{justify-content:flex-start;width:100%}}
+
+/* Product manager: modal workspace so product actions cannot be confused with event save */
+body.modal-open{overflow:hidden}
+.product-manager-modal{position:fixed;inset:0;z-index:1000;background:rgba(15,35,55,.48);display:flex;align-items:flex-start;justify-content:center;padding:22px 14px;overflow:auto}
+.product-manager-modal.hidden{display:none}
+.product-manager-panel{width:min(720px,100%);max-height:calc(100vh - 44px);overflow:auto;background:var(--card,#fff);border-radius:18px;box-shadow:0 18px 48px rgba(0,0,0,.24);padding:18px}
+.product-manager-header{position:sticky;top:-18px;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:12px;margin:-18px -18px 12px;padding:16px 18px 12px;background:var(--card,#fff);border-bottom:1px solid var(--line)}
+.product-manager-header h3{margin:0;color:var(--text)}
+.product-manager-close{width:38px;height:38px;border:0;border-radius:50%;background:var(--soft,#eef3f7);font-size:1.65rem;line-height:1;cursor:pointer;color:var(--text)}
+.product-manager-close:hover{filter:brightness(.97)}
+.product-title-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.product-status{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:999px;font-size:.76rem;font-weight:800;white-space:nowrap}
+.product-status::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor}
+.product-status.active{color:#19703a;background:#e8f6ed}
+.product-status.inactive{color:#a22b2b;background:#fdeaea}
+.product-inactive .product-manager-info strong{color:var(--muted)}
+.product-edit-actions{position:sticky;bottom:-18px;background:var(--card,#fff);padding:12px 0 2px;margin-top:10px}
+@media (max-width:620px){
+  .product-manager-modal{padding:0;align-items:stretch}
+  .product-manager-panel{max-height:100vh;min-height:100vh;border-radius:0;padding:16px}
+  .product-manager-header{top:-16px;margin:-16px -16px 10px;padding:14px 16px 10px}
+  .product-edit-actions{bottom:-16px}
+  .product-edit-actions .primary,.product-edit-actions .secondary{flex:1 1 140px}
+}

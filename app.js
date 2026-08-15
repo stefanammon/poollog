@@ -1390,8 +1390,9 @@ function humanSummary(r){
   if(r.Aktion==="Wasserfüllung" && r._waterFill){
     const d=r._waterFill;
     const signed=v=>{ const n=Number(v); return Number.isFinite(n) && n>0 ? `+${v}` : String(v); };
-    if(d.waterline_before_mm!==null && d.waterline_before_mm!==undefined && d.waterline_after_mm!==null && d.waterline_after_mm!==undefined) bits.push(`Wasserlinie ${signed(d.waterline_before_mm)} mm → ${signed(d.waterline_after_mm)} mm`);
-    if(d.added_volume_l!==null && d.added_volume_l!==undefined) bits.push(`${d.added_volume_l} l zugeführt`);
+    if(d.waterline_before_mm!==null && d.waterline_before_mm!==undefined) bits.push(`Wasserlinie vorher: ${signed(d.waterline_before_mm)} mm`);
+    if(d.added_volume_l!==null && d.added_volume_l!==undefined) bits.push(`Auffüllung: ${d.added_volume_l} l`);
+    if(d.waterline_after_mm!==null && d.waterline_after_mm!==undefined) bits.push(`Wasserlinie nachher: ${signed(d.waterline_after_mm)} mm`);
   }
   if(r.Wasserlinie!=="" && r.Aktion!=="Wasserfüllung" && !(r.Aktion==="Wasserpflege" && r._waterCare?.waterline_after_refill_mm!==null && r._waterCare?.waterline_after_refill_mm!==undefined)) bits.push(`Wasserlinie ${r.Wasserlinie} mm`);
   if(r.Wassertemperatur!=="") bits.push(`Wasser ${r.Wassertemperatur} °C`);

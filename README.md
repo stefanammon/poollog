@@ -14,7 +14,7 @@ Pilotversion für einen geschlossenen externen Betatest mit bis zu 20 Personen.
 
 ## Sicherung
 
-- CSV: Rohdatenexport der 21 Ereignisspalten
+- CSV: Rohdatenexport aller strukturierten Ereignisfelder
 - CSV-Export auch für einen frei wählbaren Zeitraum
 - JSON: Ereignisse plus Pool-Stammdaten
 - Import/Wiederherstellung sind in Mini bewusst nicht in der normalen UI verfügbar
@@ -61,6 +61,15 @@ Pilotversion für einen geschlossenen externen Betatest mit bis zu 20 Personen.
 - Messwert-Historie zeigt vorhandene Zustandswerte unabhängig vom Ereignistyp
 - CSV- und JSON-Export um Wasserpflege, Produkte, Wasseraustausch und Beckenbefunde erweitert
 
+
+### Notwendige Post-Freeze-Ergänzungen zu 1.0.0-beta.5 (15.08.2026)
+- Wasserlinien-0-Marke wird pro Pool einmal verbindlich bestätigt und ist danach in Mini nicht mehr änder- oder löschbar
+- serverseitiger DB-Trigger schützt die bestätigte Wasserlinien-Referenz zusätzlich gegen spätere Änderung
+- Wasserfüllung dokumentiert optional Wasserlinie vor und nach dem Auffüllen sowie die zugeführte Wassermenge
+- Wasserfüllungsmenge wird intern in Litern normalisiert und in CSV/JSON erhalten
+- Pro-relevante Architektur- und Fachkonzepte werden fortlaufend in `docs/POOLLOG4U_PRO_KONZEPT.md` dokumentiert
+- Versionsbezeichnung bleibt bewusst `1.0.0-beta.5`
+
 ## Bewusst noch nicht enthalten
 
 - Mehrpool-Auswahl in der UI
@@ -69,8 +78,10 @@ Pilotversion für einen geschlossenen externen Betatest mit bis zu 20 Personen.
 - Pro-Funktionen, Subscription, KI, Wissen, Empfehlungen oder Fotoanalyse
 
 
-## Einmalige Datenbankmigration für dieses Update
-Vor dem Deployment `SUPABASE_BETA4_CLEANING_TYPES.sql` im Supabase SQL Editor ausführen. Die Tabelle ist per RLS auf den jeweiligen Pool-Eigentümer beschränkt.
+## Einmalige Datenbankmigration für die Post-Freeze-Ergänzungen
+Vor dem Deployment dieses Stands einmalig `SUPABASE_BETA5_WATERLINE_REFERENCE_REFILL.sql` im Supabase SQL Editor ausführen. Die Migration ergänzt nur bestehende Tabellen (`pools`, `events`) und verwendet weiterhin deren vorhandene RLS-Policies.
+
+Die früheren Beta-4-Migrationen bleiben Bestandteil der bereits bestehenden Datenbankbasis.
 
 ## Beta 4 – Mehrfachauswahl Reinigung
 

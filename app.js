@@ -354,7 +354,7 @@ function nullableNumber(value){
 }
 
 function eventFromDb(row){
-  return {
+  const record={
     _id:row.id,
     _legacy_local_id:row.legacy_local_id,
     _created_at:row.created_at,
@@ -380,6 +380,17 @@ function eventFromDb(row){
     "CHC_g":dbNumberText(row.chc_g),
     "Notiz":dbText(row.note)
   };
+  if(row.action==="Wasserfüllung" || row.waterline_before_mm!=null || row.water_added_volume_l!=null){
+    record._waterFill={
+      waterline_before_mm:row.waterline_before_mm,
+      waterline_after_mm:row.waterline_mm,
+      added_volume_l:row.water_added_volume_l
+    };
+    record["Wasserlinie_vorher_mm"]=dbNumberText(row.waterline_before_mm);
+    record["Wasserlinie_nach_Auffuellen_mm"]=dbNumberText(row.waterline_mm);
+    record["Zugefuehrtes_Wasser_l"]=dbNumberText(row.water_added_volume_l);
+  }
+  return record;
 }
 
 function eventToDb(record){
@@ -391,6 +402,8 @@ function eventToDb(record){
     action:record["Aktion"],
     cleaning_type:null,
     waterline_mm:nullableNumber(record["Wasserlinie"]),
+    waterline_before_mm:record._waterFill ? nullableNumber(record._waterFill.waterline_before_mm) : null,
+    water_added_volume_l:record._waterFill ? nullableNumber(record._waterFill.added_volume_l) : null,
     water_temp_c:nullableNumber(record["Wassertemperatur"]),
     air_temp_c:nullableNumber(record["Außentemperatur"]),
     inner_roof:nullableText(record["Innendach"]),
@@ -785,6 +798,7 @@ function poolToMasterData(pool){
   return {
     poolName:pool.name ?? "Mein Pool",
     poolVolume:pool.volume_m3===null || pool.volume_m3===undefined ? "" : String(pool.volume_m3),
+    waterlineReferenceConfirmedAt:pool.waterline_reference_confirmed_at ?? null,
     dayStart:trimTime(pool.day_start) || "07:00",
     nightStart:trimTime(pool.night_start) || "21:00",
     nightRoof:pool.night_roof_default ?? "",
@@ -988,6 +1002,42 @@ async function loadMasterData(){
   $("mdDayBath").value=md.dayBath ?? "";
   $("mdDayPump").value=md.dayPump ?? "";
   $("mdDayFloat").value=md.dayFloat ?? "";
+  renderWaterlineReferenceState();
+}
+
+function renderWaterlineReferenceState(){
+  const lockedAt=currentPool?.waterline_reference_confirmed_at || null;
+  $("waterlineReferenceOpen")?.classList.toggle("hidden",!!lockedAt);
+  $("waterlineReferenceLocked")?.classList.toggle("hidden",!lockedAt);
+  if($("mdWaterlineReferenceConfirm")) $("mdWaterlineReferenceConfirm").checked=false;
+  const text=$("waterlineReferenceLockedText");
+  if(text && lockedAt){
+    const dt=new Date(lockedAt);
+    text.textContent=Number.isNaN(dt.getTime()) ? "" : `Bestätigt am ${dt.toLocaleDateString("de-DE")} um ${dt.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})} Uhr.`;
+  }
+}
+
+async function lockWaterlineReference(){
+  if(!currentPool) throw new Error("Kein Pool ausgewählt.");
+  if(currentPool.waterline_reference_confirmed_at){ renderWaterlineReferenceState(); return; }
+  if(!$("mdWaterlineReferenceConfirm")?.checked){
+    toast("Bitte bestätige zuerst die feste 0-Marke.");
+    return;
+  }
+  const lockedAt=new Date().toISOString();
+  const {data,error}=await supabase
+    .from("pools")
+    .update({waterline_reference_confirmed_at:lockedAt})
+    .eq("id",currentPool.id)
+    .is("waterline_reference_confirmed_at",null)
+    .select("*")
+    .maybeSingle();
+  if(error) throw error;
+  if(!data){ await reloadCurrentPool(); renderWaterlineReferenceState(); return; }
+  currentPool=data;
+  updatePoolIdentity();
+  renderWaterlineReferenceState();
+  toast("0-Marke verbindlich festgelegt");
 }
 
 async function saveMasterData(){
@@ -1123,6 +1173,28 @@ async function prefillPartialExchangeWaterline(){
   }
 }
 
+async function prefillWaterFillBefore(){
+  if(!currentPool || valueOf("Aktion")!=="Wasserfüllung") return;
+  if(valueOf("WaterFillBeforeMm")!=="") return;
+  const {data,error}=await supabase
+    .from("events")
+    .select("waterline_mm,event_date,event_time")
+    .eq("pool_id",currentPool.id)
+    .not("waterline_mm","is",null)
+    .order("event_date",{ascending:false})
+    .order("event_time",{ascending:false})
+    .limit(1)
+    .maybeSingle();
+  if(error) return;
+  const hint=$("waterFillPrefillHint");
+  if(data && data.waterline_mm!==null && data.waterline_mm!==undefined){
+    $("WaterFillBeforeMm").value=String(data.waterline_mm);
+    if(hint) hint.textContent=`Zuletzt erfasste Wasserlinie (${data.event_date}${data.event_time ? " · "+String(data.event_time).slice(0,5) : ""}): ${data.waterline_mm} mm. Bitte vor dem Auffüllen prüfen bzw. korrigieren.`;
+  } else if(hint){
+    hint.textContent="Keine frühere Wasserlinie gefunden. Du kannst den aktuellen Wert vor dem Auffüllen selbst eintragen.";
+  }
+}
+
 function updateActionUI(){
   const action=valueOf("Aktion");
   const care=careActionFromSelection(action);
@@ -1182,7 +1254,16 @@ function buildRecord(){
       .filter(Boolean)
       .join(" | ");
   } else if(actionSelection==="Wasserfüllung"){
-    rec["Wasserlinie"]=numericValueOf("WasserlinieOther");
+    const before=nullableNumber(valueOf("WaterFillBeforeMm"));
+    const after=nullableNumber(valueOf("WasserlinieOther"));
+    const amount=nullableNumber(valueOf("WaterFillAddedAmount"));
+    const unit=valueOf("WaterFillAddedUnit") || "l";
+    const addedLiters=Number.isFinite(amount) ? (unit==="m3" ? amount*1000 : amount) : null;
+    rec["Wasserlinie"]=after===null ? "" : String(after);
+    rec["Wasserlinie_vorher_mm"]=before===null ? "" : String(before);
+    rec["Wasserlinie_nach_Auffuellen_mm"]=after===null ? "" : String(after);
+    rec["Zugefuehrtes_Wasser_l"]=addedLiters===null ? "" : String(addedLiters);
+    rec._waterFill={waterline_before_mm:before,waterline_after_mm:after,added_volume_l:addedLiters};
   } else if(careAction){
     const isExchange=careAction==="water_exchange_partial" || careAction==="water_exchange_full";
     if(isExchange){
@@ -1259,6 +1340,13 @@ function validateRecord(rec){
     if(d.water_exchange_method==="direct_volume" && (!Number.isFinite(Number(d.amount)) || Number(d.amount)<=0)) return "Bitte die abgelassene Wassermenge eingeben.";
     if(d.water_exchange_method==="water_meter" && (!Number.isFinite(Number(d.meter_before_m3)) || !Number.isFinite(Number(d.meter_after_m3)) || Number(d.meter_after_m3)<=Number(d.meter_before_m3))) return "Bitte die Wasseruhrstände prüfen.";
   }
+  if(rec.Aktion==="Wasserfüllung" && rec._waterFill){
+    const b=rec._waterFill.waterline_before_mm, a=rec._waterFill.waterline_after_mm, v=rec._waterFill.added_volume_l;
+    if(v!==null && (!Number.isFinite(Number(v)) || Number(v)<=0)) return "Bitte die zugeführte Wassermenge prüfen.";
+    if(b!==null && a!==null && Number(a)<=Number(b)) return "Die Wasserlinie nach dem Auffüllen muss über der Wasserlinie vor dem Auffüllen liegen. Bitte Vorzeichen bzw. Eingabe prüfen.";
+  }
+  const usesWaterline=rec["Wasserlinie"]!=="" || rec._waterFill?.waterline_before_mm!=null || rec._waterCare?.waterline_before_mm!=null || rec._waterCare?.waterline_after_drain_mm!=null || rec._waterCare?.waterline_after_refill_mm!=null;
+  if(usesWaterline && !currentPool?.waterline_reference_confirmed_at) return "Lege zuerst unter Stammdaten Deine feste Wasserlinien-0-Marke verbindlich fest.";
   if(rec.Aktion==="Messung" && $("HasBasinFinding")?.checked && (!rec._basinFindings || rec._basinFindings.length===0)) return "Bitte mindestens eine Beckenauffälligkeit erfassen oder die Auswahl deaktivieren.";
   if(rec._basinFindings?.some(f=>!f.appearance || !f.behavior || !f.locations?.length)) return "Bitte bei jeder Beckenauffälligkeit mindestens einen Ort auswählen.";
   const nonNegative=["fCl","CYA","TA","Dach_Offen_h","Badebetrieb_h","Chlorschwimmer_h","Pumpe_h","CHC_g"];
@@ -1299,7 +1387,13 @@ function humanSummary(r){
       bits.push(`${d.added_volume_l} l zugeführt`);
     }
   }
-  if(r.Wasserlinie!=="" && !(r.Aktion==="Wasserpflege" && r._waterCare?.waterline_after_refill_mm!==null && r._waterCare?.waterline_after_refill_mm!==undefined)) bits.push(`Wasserlinie ${r.Wasserlinie} mm`);
+  if(r.Aktion==="Wasserfüllung" && r._waterFill){
+    const d=r._waterFill;
+    const signed=v=>{ const n=Number(v); return Number.isFinite(n) && n>0 ? `+${v}` : String(v); };
+    if(d.waterline_before_mm!==null && d.waterline_before_mm!==undefined && d.waterline_after_mm!==null && d.waterline_after_mm!==undefined) bits.push(`Wasserlinie ${signed(d.waterline_before_mm)} mm → ${signed(d.waterline_after_mm)} mm`);
+    if(d.added_volume_l!==null && d.added_volume_l!==undefined) bits.push(`${d.added_volume_l} l zugeführt`);
+  }
+  if(r.Wasserlinie!=="" && r.Aktion!=="Wasserfüllung" && !(r.Aktion==="Wasserpflege" && r._waterCare?.waterline_after_refill_mm!==null && r._waterCare?.waterline_after_refill_mm!==undefined)) bits.push(`Wasserlinie ${r.Wasserlinie} mm`);
   if(r.Wassertemperatur!=="") bits.push(`Wasser ${r.Wassertemperatur} °C`);
   if(r.Außentemperatur!=="") bits.push(`Außen ${r.Außentemperatur} °C`);
   if(r.Innendach) bits.push(`Innendach ${r.Innendach}`);
@@ -1411,7 +1505,12 @@ async function editRecord(id){
     const ids=(r._cleaningTypes||[]).map(x=>x.id).filter(x=>x!==null && x!==undefined);
     renderCleaningTypeSelect(ids);
   }
-  if(r.Aktion==="Wasserfüllung") $("WasserlinieOther").value=r.Wasserlinie??"";
+  if(r.Aktion==="Wasserfüllung"){
+    $("WasserlinieOther").value=r.Wasserlinie??"";
+    if($("WaterFillBeforeMm")) $("WaterFillBeforeMm").value=r._waterFill?.waterline_before_mm??"";
+    if($("WaterFillAddedAmount")) $("WaterFillAddedAmount").value=r._waterFill?.added_volume_l??"";
+    if($("WaterFillAddedUnit")) $("WaterFillAddedUnit").value="l";
+  }
   if(r.Aktion==="Wasserpflege" && r._waterCare){
     const d=r._waterCare;
     renderProductSelect(d.product_id||"");
@@ -1548,7 +1647,7 @@ document.querySelectorAll(".step-btn").forEach(btn=>{
   });
 });
 
-for(const id of ["Wasserlinie","WasserlinieOther","Wassertemperatur","Außentemperatur","WaterlineBeforeMm","WaterlineAfterDrainMm","WaterlineAfterRefillMm"]){
+for(const id of ["Wasserlinie","WasserlinieOther","WaterFillBeforeMm","Wassertemperatur","Außentemperatur","WaterlineBeforeMm","WaterlineAfterDrainMm","WaterlineAfterRefillMm"]){
   $(id).addEventListener("input",e=>{
     e.target.value=e.target.value.replaceAll("−","-");
   });
@@ -1576,6 +1675,7 @@ $("Aktion").addEventListener("change",async()=>{
   updateActionUI();
   if(valueOf("Aktion")==="Messung") await updateElapsedSinceMeasurement();
   if(careActionFromSelection(valueOf("Aktion"))==="water_exchange_partial") await prefillPartialExchangeWaterline();
+  if(valueOf("Aktion")==="Wasserfüllung") await prefillWaterFillBefore();
 });
 $("WaterCareProduct")?.addEventListener("change",updateUnitFromProduct);
 $("WaterExchangeMethod")?.addEventListener("change",updateWaterExchangeUI);
@@ -1620,6 +1720,7 @@ $("masterDataBtn").addEventListener("click",async()=>{
 });
 $("closeMasterDataBtn").addEventListener("click",()=>switchView("menuView"));
 $("addCleaningTypeBtn").addEventListener("click",()=>addCleaningType().catch(showError));
+$("lockWaterlineReferenceBtn")?.addEventListener("click",()=>lockWaterlineReference().catch(showError));
 $("newCleaningType").addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); addCleaningType().catch(showError); } });
 $("masterDataForm").addEventListener("submit",async e=>{
   e.preventDefault();

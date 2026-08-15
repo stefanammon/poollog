@@ -63,6 +63,7 @@
           <p class="hint onboarding-lead"><strong>Pool anlegen</strong><br>Diese Angaben kannst Du später unter Stammdaten ändern.</p>
           <label class="field"><span>Poolbezeichnung</span><input id="newPoolName" type="text" required placeholder="z. B. Gartenpool"></label>
           <label class="field"><span>Poolvolumen <small>m³</small></span><input id="newPoolVolume" type="number" min="0" step="0.1" inputmode="decimal" placeholder="z. B. 17,5"></label>
+          <p class="hint"><strong>Wasserlinie:</strong> Bringe vor der ersten Wasserlinienmessung eine feste 0-Marke an Deinem Pool an. In Mini bestätigst Du diese anschließend einmalig unter <strong>Stammdaten</strong>.</p>
         </div>
         <div class="sticky-actions"><button class="primary" type="submit">Pool anlegen</button></div>
       </form>
@@ -379,15 +380,31 @@
         </div>
 
         <div id="otherBlock" class="card action-block hidden">
-          <h2>Zusatzdaten</h2>
-          <label class="field">
-            <span>Wasserlinie <small>mm</small></span>
-            <div class="signed-input">
-              <button class="step-btn minus" type="button" data-target="WasserlinieOther" data-step="-1" aria-label="Wasserlinie minus 1">−</button>
-              <input id="WasserlinieOther" type="text" inputmode="decimal" placeholder="z. B. -3" autocomplete="off">
-              <button class="step-btn plus" type="button" data-target="WasserlinieOther" data-step="1" aria-label="Wasserlinie plus 1">+</button>
-            </div>
-          </label>
+          <h2>Wasserfüllung</h2>
+          <p class="hint">Dokumentiere nach Möglichkeit die Wasserlinie vor und nach dem Auffüllen. Die zugeführte Wassermenge ist optional – auch eine ungefähre Angabe kann später hilfreich sein.</p>
+          <div class="two-col">
+            <label class="field">
+              <span>Vor Auffüllen <small>mm</small></span>
+              <div class="signed-input">
+                <button class="step-btn minus" type="button" data-target="WaterFillBeforeMm" data-step="-1" aria-label="Wasserlinie vor Auffüllen minus 1">−</button>
+                <input id="WaterFillBeforeMm" type="text" inputmode="decimal" placeholder="z. B. -25" autocomplete="off">
+                <button class="step-btn plus" type="button" data-target="WaterFillBeforeMm" data-step="1" aria-label="Wasserlinie vor Auffüllen plus 1">+</button>
+              </div>
+            </label>
+            <label class="field">
+              <span>Nach Auffüllen <small>mm</small></span>
+              <div class="signed-input">
+                <button class="step-btn minus" type="button" data-target="WasserlinieOther" data-step="-1" aria-label="Wasserlinie nach Auffüllen minus 1">−</button>
+                <input id="WasserlinieOther" type="text" inputmode="decimal" placeholder="z. B. -3" autocomplete="off">
+                <button class="step-btn plus" type="button" data-target="WasserlinieOther" data-step="1" aria-label="Wasserlinie nach Auffüllen plus 1">+</button>
+              </div>
+            </label>
+          </div>
+          <p id="waterFillPrefillHint" class="hint"></p>
+          <div class="two-col">
+            <label class="field"><span>Zugeführtes Wasser <small>optional</small></span><input id="WaterFillAddedAmount" type="number" min="0" step="0.01" inputmode="decimal" placeholder="z. B. 500"></label>
+            <label class="field"><span>Einheit</span><select id="WaterFillAddedUnit"><option value="l">l</option><option value="m3">m³</option></select></label>
+          </div>
         </div>
 
         <div class="card">
@@ -454,6 +471,18 @@
             <span>Poolvolumen <small>m³</small></span>
             <input id="mdPoolVolume" type="number" min="0" step="0.1" inputmode="decimal" placeholder="17,5">
           </label>
+          <div class="reference-box">
+            <h3 class="subhead">Wasserlinien-Referenz</h3>
+            <div id="waterlineReferenceOpen">
+              <p class="hint">Lege am Pool eine feste 0-Marke an – sinnvollerweise auf Höhe Deines normalen Wasserstands. Alle Wasserlinienwerte beziehen sich dauerhaft auf genau diese Marke.</p>
+              <label class="mini-check reference-confirm"><input id="mdWaterlineReferenceConfirm" type="checkbox"><span>Ich habe die feste 0-Marke angebracht und bestätige, dass auch bereits vorhandene Wasserlinienwerte dieses Pools dieselbe Referenz verwenden.</span></label>
+              <button id="lockWaterlineReferenceBtn" class="secondary compact-btn" type="button">0-Marke verbindlich festlegen</button>
+              <p class="hint"><strong>Wichtig:</strong> In Mini kann diese Referenz danach weder geändert noch gelöscht werden.</p>
+            </div>
+            <div id="waterlineReferenceLocked" class="hidden">
+              <p class="hint"><strong>0-Marke verbindlich festgelegt.</strong><br><span id="waterlineReferenceLockedText"></span> Alle Wasserlinienwerte dieses Pools verwenden diese unveränderliche Referenz.</p>
+            </div>
+          </div>
         </div>
 
         <div class="card">

@@ -468,3 +468,9 @@ input:focus,select:focus,textarea:focus{border-color:#3b82e6;box-shadow:0 0 0 3p
   }
   .legal-footer-logo{width:96px}
 }
+
+/* Post-freeze waterline reference clarification */
+.reference-box{margin-top:18px;padding-top:14px;border-top:1px solid var(--line)}
+.reference-confirm{align-items:flex-start;margin:12px 0;border-radius:9px}
+.reference-confirm input{margin-top:2px;flex:0 0 auto}
+.reference-confirm span{line-height:1.4}

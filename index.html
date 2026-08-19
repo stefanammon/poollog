@@ -216,42 +216,38 @@
         </div>
 
         <div id="measurementBlock" class="card action-block">
-          <h2>Messwerte</h2>
-          <label class="field">
-            <span>Wasserlinie <small>mm</small></span>
-            <div class="signed-input">
-              <button class="step-btn minus" type="button" data-target="Wasserlinie" data-step="-1" aria-label="Wasserlinie minus 1">−</button>
-              <input id="Wasserlinie" name="Wasserlinie" type="text" inputmode="decimal" placeholder="z. B. -3" autocomplete="off">
-              <button class="step-btn plus" type="button" data-target="Wasserlinie" data-step="1" aria-label="Wasserlinie plus 1">+</button>
-            </div>
-          </label>
-          <div class="two-col">
-            <label class="field">
-              <span>Wasser <small>°C</small></span>
-              <input id="Wassertemperatur" name="Wassertemperatur" type="text" inputmode="decimal" placeholder="27,9" autocomplete="off">
-            </label>
-            <label class="field">
-              <span>Außen <small>°C</small></span>
-              <input id="Außentemperatur" name="Außentemperatur" type="text" inputmode="decimal" placeholder="12" autocomplete="off">
-            </label>
+          <div class="section-progress">
+            <div class="section-progress-track"><div id="sectionProgressFill" class="section-progress-fill"></div></div>
+            <span id="sectionProgressLabel" class="section-progress-label">0/13 Felder</span>
           </div>
+          <nav class="section-jumpbar" aria-label="Bereiche der Messung">
+            <a href="#sectionWerte" class="section-chip" data-section-link="sectionWerte">Werte</a>
+            <a href="#sectionChemie" class="section-chip" data-section-link="sectionChemie">Chemie</a>
+            <a href="#sectionUmgebung" class="section-chip" data-section-link="sectionUmgebung">Umgebung</a>
+            <a href="#sectionZeitraum" class="section-chip" data-section-link="sectionZeitraum">Zeitraum</a>
+            <a href="#sectionBefund" class="section-chip" data-section-link="sectionBefund">Befund</a>
+          </nav>
 
-          <label class="field">
-            <span>Innendach</span>
-            <select id="Innendach" name="Innendach">
-              <option value=""></option>
-              <option>trocken</option>
-              <option>wenig</option>
-              <option>mittel</option>
-              <option>stark</option>
-            </select>
-          </label>
-
-          <div class="two-col">
+          <div id="sectionWerte" class="section-group">
+            <h3 class="section-heading">Werte</h3>
             <label class="field">
-              <span>fCl <small>mg/l</small></span>
-              <input id="fCl" name="fCl" type="number" min="0" step="0.01" inputmode="decimal" placeholder="1,78">
+              <span>Wasserlinie <small>mm</small></span>
+              <div class="signed-input">
+                <button class="step-btn minus" type="button" data-target="Wasserlinie" data-step="-1" aria-label="Wasserlinie minus 1">−</button>
+                <input id="Wasserlinie" name="Wasserlinie" type="text" inputmode="decimal" placeholder="z. B. -3" autocomplete="off">
+                <button class="step-btn plus" type="button" data-target="Wasserlinie" data-step="1" aria-label="Wasserlinie plus 1">+</button>
+              </div>
             </label>
+            <div class="two-col">
+              <label class="field">
+                <span>fCl <small>mg/l</small></span>
+                <input id="fCl" name="fCl" type="number" min="0" step="0.01" inputmode="decimal" placeholder="1,78">
+              </label>
+              <label class="field">
+                <span>pH</span>
+                <input id="pH" name="pH" type="number" min="0" max="14" step="0.01" inputmode="decimal">
+              </label>
+            </div>
             <label class="field">
               <span>fCl Status</span>
               <select id="fCl_Status" name="fCl_Status">
@@ -262,121 +258,170 @@
             </label>
           </div>
 
-          <div class="three-col">
-            <label class="field">
-              <span>CYA</span>
-              <input id="CYA" name="CYA" type="number" min="0" step="0.1" inputmode="decimal">
-            </label>
-            <label class="field">
-              <span>TA</span>
-              <input id="TA" name="TA" type="number" min="0" step="0.1" inputmode="decimal">
-            </label>
-            <label class="field">
-              <span>pH</span>
-              <input id="pH" name="pH" type="number" min="0" max="14" step="0.01" inputmode="decimal">
-            </label>
-          </div>
-
-          <label class="field">
-            <span>Wasseroptik</span>
-            <select id="Wasseroptik" name="Wasseroptik">
-              <option value=""></option>
-              <option>Sehr gut</option>
-              <option>gut</option>
-              <option>ok</option>
-              <option>grün</option>
-              <option>braun</option>
-              <option>milchig</option>
-            </select>
-          </label>
-
-          <div class="basin-observation">
-            <label class="field checkbox-field"><input id="HasBasinFinding" type="checkbox"><span>Beckenauffälligkeit festgestellt</span></label>
-            <div id="basinFindingsEditor" class="hidden">
-              <div id="basinFindingRows"></div>
-              <button id="addBasinFindingBtn" class="secondary compact-btn" type="button">+ Weitere Auffälligkeit</button>
+          <div id="sectionChemie" class="section-group">
+            <h3 class="section-heading">Chemie erweitert</h3>
+            <div class="two-col">
+              <label class="field">
+                <span>CYA</span>
+                <input id="CYA" name="CYA" type="number" min="0" step="0.1" inputmode="decimal">
+              </label>
+              <label class="field">
+                <span>TA</span>
+                <input id="TA" name="TA" type="number" min="0" step="0.1" inputmode="decimal">
+              </label>
             </div>
           </div>
 
-          <details class="intervals" open>
-            <summary>Zeitraum seit der vorherigen Messung</summary>
+          <div id="sectionUmgebung" class="section-group">
+            <h3 class="section-heading">Umgebung</h3>
+            <div class="two-col">
+              <label class="field">
+                <span>Wasser <small>°C</small></span>
+                <input id="Wassertemperatur" name="Wassertemperatur" type="text" inputmode="decimal" placeholder="27,9" autocomplete="off">
+              </label>
+              <label class="field">
+                <span>Außen <small>°C</small></span>
+                <input id="Außentemperatur" name="Außentemperatur" type="text" inputmode="decimal" placeholder="12" autocomplete="off">
+              </label>
+            </div>
+            <label class="field">
+              <span>Kondensat am Innendach</span>
+              <select id="Innendach" name="Innendach">
+                <option value=""></option>
+                <option>trocken</option>
+                <option>wenig</option>
+                <option>mittel</option>
+                <option>stark</option>
+              </select>
+            </label>
+          </div>
 
-            <div class="interval-head">
-              <div>
-                <span class="interval-label">Zeitspanne seit letzter Messung</span>
-                <strong id="elapsedSinceMeasurement">–</strong>
+          <div id="sectionZeitraum" class="section-group">
+            <h3 class="section-heading">Zeitraum</h3>
+            <details class="intervals" open>
+              <summary>Zeitraum seit Messung</summary>
+
+              <div class="interval-head">
+                <div>
+                  <span class="interval-label">Zeitraum seit Messung</span>
+                  <strong id="elapsedSinceMeasurement">–</strong>
+                </div>
+                <span id="intervalTypeBadge" class="interval-badge neutral">–</span>
               </div>
-              <span id="intervalTypeBadge" class="interval-badge neutral">–</span>
+
+              <p id="intervalContextText" class="hint">Wird automatisch aus der letzten gespeicherten Messung berechnet.</p>
+
+              <div class="interval-control">
+                <div class="field-label-row">
+                  <span class="field-label-row-title" id="Dach_Offen_labelText">Dach</span>
+                  <button type="button" class="suggestion-btn" id="Dach_Offen_suggestBtn" aria-label="Vorschlag für Dach in Stammdaten ändern">
+                    <span id="Dach_Offen_suggestText">kein Vorschlag</span><span class="gear" aria-hidden="true">⚙</span>
+                  </button>
+                </div>
+                <label class="field">
+                  <select id="Dach_Offen_state" aria-labelledby="Dach_Offen_labelText">
+                    <option value="">Unbekannt / nicht erfasst</option>
+                    <option value="zero">Geschlossen · 0 h</option>
+                    <option value="partial">Teilweise offen</option>
+                    <option value="full">Durchgehend offen · gesamtes Intervall</option>
+                  </select>
+                </label>
+                <label id="Dach_Offen_partialWrap" class="field partial-hours hidden">
+                  <span>Offen in Stunden <small>h</small></span>
+                  <input id="Dach_Offen_h" name="Dach_Offen_h" type="number" min="0" step="0.1" inputmode="decimal">
+                </label>
+              </div>
+
+              <div class="interval-control">
+                <div class="field-label-row">
+                  <span class="field-label-row-title" id="Badebetrieb_labelText">Badebetrieb</span>
+                  <button type="button" class="suggestion-btn" id="Badebetrieb_suggestBtn" aria-label="Vorschlag für Badebetrieb in Stammdaten ändern">
+                    <span id="Badebetrieb_suggestText">kein Vorschlag</span><span class="gear" aria-hidden="true">⚙</span>
+                  </button>
+                </div>
+                <label class="field">
+                  <select id="Badebetrieb_state" aria-labelledby="Badebetrieb_labelText">
+                    <option value="">Unbekannt / nicht erfasst</option>
+                    <option value="zero">Kein Badebetrieb · 0 h</option>
+                    <option value="partial">Teilweise</option>
+                    <option value="full">Durchgehend · gesamtes Intervall</option>
+                  </select>
+                </label>
+                <label id="Badebetrieb_partialWrap" class="field partial-hours hidden">
+                  <span>Badebetrieb in Stunden <small>h</small></span>
+                  <input id="Badebetrieb_h" name="Badebetrieb_h" type="number" min="0" step="0.1" inputmode="decimal">
+                </label>
+              </div>
+
+              <div class="interval-control">
+                <div class="field-label-row">
+                  <span class="field-label-row-title" id="Pumpe_labelText">Pumpe</span>
+                  <button type="button" class="suggestion-btn" id="Pumpe_suggestBtn" aria-label="Vorschlag für Pumpe in Stammdaten ändern">
+                    <span id="Pumpe_suggestText">kein Vorschlag</span><span class="gear" aria-hidden="true">⚙</span>
+                  </button>
+                </div>
+                <label class="field">
+                  <select id="Pumpe_state" aria-labelledby="Pumpe_labelText">
+                    <option value="">Unbekannt / nicht erfasst</option>
+                    <option value="zero">Aus · 0 h</option>
+                    <option value="partial">Teilweise gelaufen</option>
+                    <option value="full">Durchgehend · gesamtes Intervall</option>
+                  </select>
+                </label>
+                <label id="Pumpe_partialWrap" class="field partial-hours hidden">
+                  <span>Gelaufen in Stunden <small>h</small></span>
+                  <input id="Pumpe_h" name="Pumpe_h" type="number" min="0" step="0.1" inputmode="decimal">
+                </label>
+              </div>
+
+              <div class="interval-control">
+                <div class="field-label-row">
+                  <span class="field-label-row-title" id="Chlorschwimmer_labelText">Chlorschwimmer</span>
+                  <button type="button" class="suggestion-btn" id="Chlorschwimmer_suggestBtn" aria-label="Vorschlag für Chlorschwimmer in Stammdaten ändern">
+                    <span id="Chlorschwimmer_suggestText">kein Vorschlag</span><span class="gear" aria-hidden="true">⚙</span>
+                  </button>
+                </div>
+                <label class="field">
+                  <select id="Chlorschwimmer_state" aria-labelledby="Chlorschwimmer_labelText">
+                    <option value="">Unbekannt / nicht erfasst</option>
+                    <option value="zero">Nicht im Pool · 0 h</option>
+                    <option value="partial">Teilweise im Pool</option>
+                    <option value="full">Durchgehend · gesamtes Intervall</option>
+                  </select>
+                </label>
+                <label id="Chlorschwimmer_partialWrap" class="field partial-hours hidden">
+                  <span>Im Pool in Stunden <small>h</small></span>
+                  <input id="Chlorschwimmer_h" name="Chlorschwimmer_h" type="number" min="0" step="0.1" inputmode="decimal">
+                </label>
+              </div>
+
+              <p class="hint interval-note">Beachte: Bei grün hinterlegten Feldern ist in den Stammdaten ein Vorschlag hinterlegt. Ein Feld leer lassen bedeutet „keine Eingabe“. Ein Feld mit Inhalt 0 hat den Wert 0.</p>
+            </details>
+          </div>
+
+          <div id="sectionBefund" class="section-group">
+            <h3 class="section-heading">Optik &amp; Befund</h3>
+            <label class="field">
+              <span>Wasseroptik</span>
+              <select id="Wasseroptik" name="Wasseroptik">
+                <option value=""></option>
+                <option>Sehr gut</option>
+                <option>gut</option>
+                <option>ok</option>
+                <option>grün</option>
+                <option>braun</option>
+                <option>milchig</option>
+              </select>
+            </label>
+
+            <div class="basin-observation">
+              <label class="field checkbox-field"><input id="HasBasinFinding" type="checkbox"><span>Beckenauffälligkeit festgestellt</span></label>
+              <div id="basinFindingsEditor" class="hidden">
+                <div id="basinFindingRows"></div>
+                <button id="addBasinFindingBtn" class="secondary compact-btn" type="button">+ Weitere Auffälligkeit</button>
+              </div>
             </div>
-
-            <p id="intervalContextText" class="hint">Automatisch aus letzter gespeicherter Messung und aktuellem Datum/Uhrzeit berechnet.</p>
-
-            <div class="interval-control">
-              <label class="field">
-                <span>Dach</span>
-                <select id="Dach_Offen_state">
-                  <option value="">Unbekannt / nicht erfasst</option>
-                  <option value="zero">Durchgehend geschlossen · 0 h</option>
-                  <option value="partial">Teilweise offen</option>
-                  <option value="full">Durchgehend offen · gesamtes Intervall</option>
-                </select>
-              </label>
-              <label id="Dach_Offen_partialWrap" class="field partial-hours hidden">
-                <span>Offen in Stunden <small>h</small></span>
-                <input id="Dach_Offen_h" name="Dach_Offen_h" type="number" min="0" step="0.1" inputmode="decimal">
-              </label>
-            </div>
-
-            <div class="interval-control">
-              <label class="field">
-                <span>Badebetrieb</span>
-                <select id="Badebetrieb_state">
-                  <option value="">Unbekannt / nicht erfasst</option>
-                  <option value="zero">Kein Badebetrieb · 0 h</option>
-                  <option value="partial">Teilweise</option>
-                  <option value="full">Gesamtes Intervall</option>
-                </select>
-              </label>
-              <label id="Badebetrieb_partialWrap" class="field partial-hours hidden">
-                <span>Badebetrieb in Stunden <small>h</small></span>
-                <input id="Badebetrieb_h" name="Badebetrieb_h" type="number" min="0" step="0.1" inputmode="decimal">
-              </label>
-            </div>
-
-            <div class="interval-control">
-              <label class="field">
-                <span>Pumpe</span>
-                <select id="Pumpe_state">
-                  <option value="">Unbekannt / nicht erfasst</option>
-                  <option value="zero">Aus · 0 h</option>
-                  <option value="partial">Teilweise gelaufen</option>
-                  <option value="full">Durchgehend · gesamtes Intervall</option>
-                </select>
-              </label>
-              <label id="Pumpe_partialWrap" class="field partial-hours hidden">
-                <span>Betrieb in Stunden <small>h</small></span>
-                <input id="Pumpe_h" name="Pumpe_h" type="number" min="0" step="0.1" inputmode="decimal">
-              </label>
-            </div>
-
-            <div class="interval-control">
-              <label class="field">
-                <span>Chlorschwimmer</span>
-                <select id="Chlorschwimmer_state">
-                  <option value="">Unbekannt / nicht erfasst</option>
-                  <option value="zero">Nicht im Pool · 0 h</option>
-                  <option value="partial">Teilweise im Pool</option>
-                  <option value="full">Durchgehend · gesamtes Intervall</option>
-                </select>
-              </label>
-              <label id="Chlorschwimmer_partialWrap" class="field partial-hours hidden">
-                <span>Im Pool in Stunden <small>h</small></span>
-                <input id="Chlorschwimmer_h" name="Chlorschwimmer_h" type="number" min="0" step="0.1" inputmode="decimal">
-              </label>
-            </div>
-
-            <p class="hint interval-note">„Standard“ bedeutet Vorschlag aus den Stammdaten. Speichern übernimmt den angezeigten Zustand. Leer bleibt weiterhin unbekannt; 0 ist ausdrücklich 0 Stunden.</p>
-          </details>
+          </div>
         </div>
 
         <div id="otherBlock" class="card action-block hidden">

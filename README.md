@@ -70,6 +70,13 @@ Pilotversion für einen geschlossenen externen Betatest mit bis zu 20 Personen.
 - Pro-relevante Architektur- und Fachkonzepte werden fortlaufend in `docs/POOLLOG4U_PRO_KONZEPT.md` dokumentiert
 - Versionsbezeichnung bleibt bewusst `1.0.0-beta.5`
 
+### UX-Überarbeitung Messungs-Formular zu 1.0.0-beta.5 (19.08.2026) – abgeschlossen und getestet
+- reine Präsentationsebene, keine Änderung an Datenmodell, Validierung oder Exportformaten
+- Messungs-Formular in sichtbare Bereiche gegliedert (Werte, Chemie erweitert, Umgebung, Zeitraum, Optik & Befund) statt einer langen Einzelseite
+- sticky Sprungleiste zu den Bereichen sowie Fortschrittsanzeige „X/13 Felder“, um die von Mini angestrebte möglichst vollständige Datenerfassung zu unterstützen
+- Zahnrad-Buttons an den Intervallfeldern (Dach, Badebetrieb, Pumpe, Chlorschwimmer) springen direkt zum passenden Stammdaten-Vorschlag; Rücksprung über „Zurück“ oder „Speichern“ führt unabhängig vom Einstiegspunkt zur Ausgangsansicht zurück
+- Details in `docs/MINI_UX_MESSUNGSFORMULAR_20260819.md`
+
 ## Bewusst noch nicht enthalten
 
 - Mehrpool-Auswahl in der UI

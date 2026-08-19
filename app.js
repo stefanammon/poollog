@@ -177,6 +177,32 @@ function classifyInterval(start,end,dayStartStr,nightStartStr){
   };
 }
 
+const SECTION_PROGRESS_FIELDS=[
+  "Wasserlinie","fCl","pH","CYA","TA","Wassertemperatur","Außentemperatur","Innendach","Wasseroptik",
+  "Dach_Offen_state","Badebetrieb_state","Pumpe_state","Chlorschwimmer_state"
+];
+
+function updateSectionProgress(){
+  const fill=$("sectionProgressFill");
+  const label=$("sectionProgressLabel");
+  if(!fill || !label) return;
+  const total=SECTION_PROGRESS_FIELDS.length;
+  let filled=0;
+  for(const id of SECTION_PROGRESS_FIELDS){
+    const el=$(id);
+    if(el && String(el.value ?? "").trim()!=="") filled++;
+  }
+  fill.style.width=(total ? (filled/total*100) : 0)+"%";
+  label.textContent=`${filled}/${total} Felder`;
+}
+
+function suggestionLabelText(state){
+  if(state==="zero") return "Vorschlag 0 h";
+  if(state==="full") return "Vorschlag durchgehend";
+  if(state==="partial") return "Vorschlag teilweise";
+  return "kein Vorschlag";
+}
+
 function stateIds(){
   return [
     ["Dach_Offen","Roof"],
@@ -223,17 +249,21 @@ async function applyIntervalDefaults(force=false){
     const select=$(prefix+"_state");
     if(!select) continue;
 
-    // Preserve a user's manual choice unless explicitly refreshing.
-    if(!force && select.dataset.touched==="1") continue;
-
     let suggested="";
     if(type==="night") suggested=md["night"+key] ?? "";
     else if(type==="day") suggested=md["day"+key] ?? "";
     else suggested="";
 
+    const suggestText=$(prefix+"_suggestText");
+    if(suggestText) suggestText.textContent=suggestionLabelText(suggested);
+
+    // Preserve a user's manual choice unless explicitly refreshing.
+    if(!force && select.dataset.touched==="1") continue;
+
     setStateUI(prefix,suggested,!!suggested);
     select.dataset.touched="0";
   }
+  updateSectionProgress();
 }
 
 function formatGermanDate(isoDate){
@@ -1141,6 +1171,7 @@ function setDefaults(){
   }
   updateActionUI();
   updateElapsedSinceMeasurement();
+  updateSectionProgress();
 }
 
 function updateWaterExchangeUI(){
@@ -1555,6 +1586,7 @@ async function editRecord(id){
     if(state==="partial" && $(prefix+"_h")) $(prefix+"_h").value=raw;
   }
 
+  updateSectionProgress();
   window.scrollTo({top:0,behavior:"smooth"});
 }
 
@@ -1714,12 +1746,10 @@ $("backBtn").addEventListener("click",()=>switchView("entryView"));
 $("menuBtn").addEventListener("click",()=>switchView("menuView"));
 $("masterDataBtn").addEventListener("click",async()=>{
   try{
-    await reloadCurrentPool();
-    await loadMasterData();
-    switchView("masterDataView");
+    await openMasterDataView();
   }catch(err){ showError(err); }
 });
-$("closeMasterDataBtn").addEventListener("click",()=>switchView("menuView"));
+$("closeMasterDataBtn").addEventListener("click",()=>leaveMasterDataView());
 $("addCleaningTypeBtn").addEventListener("click",()=>addCleaningType().catch(showError));
 $("lockWaterlineReferenceBtn")?.addEventListener("click",()=>lockWaterlineReference().catch(showError));
 $("newCleaningType").addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); addCleaningType().catch(showError); } });
@@ -1737,6 +1767,7 @@ $("masterDataForm").addEventListener("submit",async e=>{
     await saveCleaningTypeEdits();
     await saveMasterData();
     toast("Stammdaten zentral gespeichert");
+    leaveMasterDataView();
   }catch(err){ showError(err); }
 });
 $("closeMenuBtn").addEventListener("click",()=>switchView("entryView"));
@@ -1753,6 +1784,61 @@ $("legalModal").addEventListener("click",e=>{ if(e.target===$("legalModal")) clo
 $("betaWelcomeOkBtn").addEventListener("click",dismissBetaWelcome);
 document.addEventListener("keydown",e=>{ if(e.key==="Escape" && !$("legalModal").classList.contains("hidden")) closeLegalModal(); });
 
+
+let masterDataReturnView="menuView";
+
+async function openMasterDataView(){
+  const activeEl=document.querySelector(".view.active");
+  if(activeEl && activeEl.id!=="masterDataView") masterDataReturnView=activeEl.id;
+  await reloadCurrentPool();
+  await loadMasterData();
+  switchView("masterDataView");
+}
+
+async function leaveMasterDataView(){
+  const target=masterDataReturnView || "menuView";
+  switchView(target);
+  if(target==="entryView") await updateElapsedSinceMeasurement();
+}
+
+async function openSuggestionSettings(key){
+  try{
+    await openMasterDataView();
+    const md=await getMasterData();
+    const nowMinute=minutesOfDay(localTimeString());
+    const useDay = currentInterval.type==="day" ? true
+                 : currentInterval.type==="night" ? false
+                 : isDayMinute(nowMinute, md.dayStart, md.nightStart);
+    const targetId=(useDay?"mdDay":"mdNight")+key;
+    const el=$(targetId);
+    if(el){
+      el.scrollIntoView({behavior:"smooth",block:"center"});
+      el.focus({preventScroll:true});
+      el.classList.add("suggestion-highlight");
+      setTimeout(()=>el.classList.remove("suggestion-highlight"),1600);
+    }
+  }catch(err){ showError(err); }
+}
+$("Dach_Offen_suggestBtn")?.addEventListener("click",()=>openSuggestionSettings("Roof"));
+$("Badebetrieb_suggestBtn")?.addEventListener("click",()=>openSuggestionSettings("Bath"));
+$("Pumpe_suggestBtn")?.addEventListener("click",()=>openSuggestionSettings("Pump"));
+$("Chlorschwimmer_suggestBtn")?.addEventListener("click",()=>openSuggestionSettings("Float"));
+
+$("measurementBlock")?.addEventListener("input",updateSectionProgress);
+$("measurementBlock")?.addEventListener("change",updateSectionProgress);
+
+if("IntersectionObserver" in window){
+  const sectionChips=new Map(
+    Array.from(document.querySelectorAll(".section-chip")).map(a=>[a.dataset.sectionLink,a])
+  );
+  const sectionObserver=new IntersectionObserver(entries=>{
+    for(const entry of entries){
+      const chip=sectionChips.get(entry.target.id);
+      if(chip) chip.classList.toggle("active",entry.isIntersecting);
+    }
+  },{rootMargin:"-96px 0px -70% 0px",threshold:0});
+  document.querySelectorAll(".section-group").forEach(el=>sectionObserver.observe(el));
+}
 
 function showError(err){
   console.error(err);

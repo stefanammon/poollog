@@ -77,6 +77,16 @@ Pilotversion für einen geschlossenen externen Betatest mit bis zu 20 Personen.
 - Zahnrad-Buttons an den Intervallfeldern (Dach, Badebetrieb, Pumpe, Chlorschwimmer) springen direkt zum passenden Stammdaten-Vorschlag; Rücksprung über „Zurück“ oder „Speichern“ führt unabhängig vom Einstiegspunkt zur Ausgangsansicht zurück
 - Details in `docs/MINI_UX_MESSUNGSFORMULAR_20260819.md`
 
+### Technische Optimierungen zu 1.0.0-beta.5 (19.08.2026) – abgeschlossen und getestet
+- Suche in „Alle Einträge“ nutzt einen clientseitigen Datencache und ist auf 250 ms debounced statt bei jedem Tastendruck neu vom Server zu laden
+- automatische Aktualisierung bei Fokus-/Sichtbarkeitswechsel (`refreshCentralData()`) lädt nur noch bei tatsächlicher Datenänderung (leichtgewichtiges Änderungssignal aus Anzahl/Zeitstempel) den vollständigen Bestand neu
+- Uhrzeit ist jetzt für jeden Eintrag Pflichtfeld, damit die Intervalllogik zuverlässig greift
+- blockierender Bestätigungsdialog beim Speichern, falls für Datum+Uhrzeit bereits ein anderer Eintrag existiert; bei Abbruch wird die Eingabemaske vollständig auf den Zustand einer neuen Messmaske zurückgesetzt
+- Speichern-Button wird während des Speichervorgangs deaktiviert und zeigt einen Ladezustand, um Doppel-Submits zu verhindern
+- Fehlermeldungen erscheinen zusätzlich zum Toast dauerhaft und in verständlichem Deutsch in einem `aria-live`-Bereich im Formularbereich
+- Menü-Button auf 48×48px vergrößert; sichtbarer Fokusring für Eingabefelder verstärkt
+- Details in `docs/MINI_TECH_OPTIMIERUNGEN_20260819.md`
+
 ## Bewusst noch nicht enthalten
 
 - Mehrpool-Auswahl in der UI

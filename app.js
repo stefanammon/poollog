@@ -14,7 +14,9 @@ let editingId = null;
 let authBusy = false;
 let recoveryMode = false;
 let lastAutoRefreshAt = 0;
+let lastCentralSignature = null;
 let products = [];
+let recordsCache = null;
 
 const $ = id => document.getElementById(id);
 const form = $("entryForm");
@@ -286,7 +288,7 @@ async function updateElapsedSinceMeasurement(){
     return;
   }
 
-  const rows=await getAllRecords();
+  const rows=await cachedRecords();
   const candidates=rows
     .filter(r=>String(r.Aktion ?? "").trim().toLocaleLowerCase("de-DE")==="messung")
     .map(r=>({r,dt:parseLocalDateTime(String(r.Datum??"").trim(),String(r.Uhrzeit??"").trim())}))
@@ -888,6 +890,23 @@ async function getRecord(id){
   return record;
 }
 
+// Clientseitiger Cache für getAllRecords(), damit die Suche (renderAllList)
+// und wiederholte Lesezugriffe (z. B. beim Bearbeiten) nicht bei jedem Aufruf
+// erneut alle Events/Zusatztabellen von Supabase laden müssen.
+async function loadRecordsCache(){
+  recordsCache=await getAllRecords();
+  return recordsCache;
+}
+
+function invalidateRecordsCache(){
+  recordsCache=null;
+}
+
+async function cachedRecords(){
+  if(recordsCache===null) await loadRecordsCache();
+  return recordsCache;
+}
+
 async function addRecord(record){
   const {data,error}=await supabase
     .from("events")
@@ -1154,6 +1173,7 @@ function updatePoolIdentity(){
 
 function setDefaults(){
   form.reset();
+  showFormMessage("");
   $("Aktion").value="Messung";
   $("Kürzel").value=currentActorCode();
   $("Datum").value=localDateString();
@@ -1351,6 +1371,7 @@ function buildRecord(){
 
 function validateRecord(rec){
   if(!rec.Datum) return "Datum fehlt.";
+  if(!rec.Uhrzeit) return "Uhrzeit fehlt.";
   if(!rec.Aktion) return "Aktion fehlt.";
   if(rec.Aktion==="Reinigung" && (!rec._cleaningTypeIds || rec._cleaningTypeIds.length===0)) return "Bitte mindestens eine Reinigungsart auswählen.";
   if(rec.Aktion==="Chlorung" && rec.CHC_g!=="" && Number(rec.CHC_g)<0) return "CHC_g darf nicht negativ sein.";
@@ -1495,8 +1516,8 @@ function renderMeasurementHistory(rows){
 }
 
 async function renderLists(){
-  let rows=await getAllRecords();
-  rows.sort(compareRecordsDesc);
+  let rows=await loadRecordsCache();
+  rows=rows.slice().sort(compareRecordsDesc);
   $("recentList").replaceChildren(...rows.slice(0,7).map(recordCard));
   $("recordCount").textContent=rows.length.toLocaleString("de-DE");
   renderMeasurementHistory(rows);
@@ -1505,13 +1526,19 @@ async function renderLists(){
 
 function renderAllList(rowsOverride=null){
   const render = async()=>{
-    let rows=rowsOverride || await getAllRecords();
-    rows.sort(compareRecordsDesc);
+    let rows=rowsOverride || await cachedRecords();
+    rows=rows.slice().sort(compareRecordsDesc);
     const q=valueOf("searchInput").toLowerCase();
     if(q) rows=rows.filter(r=>HEADERS.some(h=>String(r[h]??"").toLowerCase().includes(q)));
     $("allList").replaceChildren(...rows.map(recordCard));
   };
   render().catch(showError);
+}
+
+let searchDebounceTimer=null;
+function debouncedRenderAllList(){
+  clearTimeout(searchDebounceTimer);
+  searchDebounceTimer=setTimeout(()=>renderAllList(),250);
 }
 
 async function editRecord(id){
@@ -1664,7 +1691,7 @@ async function updateRangeExportInfo(){
   const from=valueOf("exportFrom"), to=valueOf("exportTo");
   if(!from || !to){ info.textContent=""; return; }
   if(from>to){ info.textContent="Von-Datum liegt nach Bis-Datum."; return; }
-  const rows=await getAllRecords();
+  const rows=await cachedRecords();
   const n=rows.filter(r=>r.Datum && r.Datum>=from && r.Datum<=to).length;
   info.textContent=`${n} Ereignis${n===1?"":"se"} im gewählten Zeitraum`;
 }
@@ -1691,6 +1718,22 @@ form.addEventListener("submit",async e=>{
   const rec=buildRecord();
   const err=validateRecord(rec);
   if(err){ toast(err); return; }
+
+  const existing=await cachedRecords();
+  const collision=existing.some(r=>r._id!==editingId && r.Datum===rec.Datum && String(r.Uhrzeit||"")===String(rec.Uhrzeit||""));
+  if(collision){
+    const proceed=confirm(`Für ${formatGermanDate(rec.Datum)} um ${rec.Uhrzeit||"–"} Uhr existiert bereits ein Eintrag. Trotzdem speichern?`);
+    if(!proceed){
+      setDefaults();
+      return;
+    }
+  }
+
+  const btn=$("saveBtn");
+  const originalLabel=btn.textContent;
+  btn.disabled=true;
+  btn.setAttribute("aria-busy","true");
+  btn.textContent="Speichert …";
   try{
     if(rec.Kürzel){
       const key=actorStorageKey();
@@ -1699,9 +1742,17 @@ form.addEventListener("submit",async e=>{
     }
     if(editingId===null) await addRecord(rec); else await putRecord(rec);
     const msg=editingId===null ? "Zentral gespeichert" : "Änderung zentral gespeichert";
-    setDefaults(); await renderLists(); toast(msg);
+    await renderLists();
+    setDefaults();
+    toast(msg);
     window.scrollTo({top:0,behavior:"smooth"});
-  }catch(err){ showError(err); }
+  }catch(err){
+    showError(err);
+  }finally{
+    btn.disabled=false;
+    btn.removeAttribute("aria-busy");
+    if(btn.textContent==="Speichert …") btn.textContent=originalLabel;
+  }
 });
 
 $("Aktion").addEventListener("change",async()=>{
@@ -1771,7 +1822,7 @@ $("masterDataForm").addEventListener("submit",async e=>{
   }catch(err){ showError(err); }
 });
 $("closeMenuBtn").addEventListener("click",()=>switchView("entryView"));
-$("searchInput").addEventListener("input",()=>renderAllList());
+$("searchInput").addEventListener("input",debouncedRenderAllList);
 $("exportCsvBtn").addEventListener("click",exportCSV);
 $("exportRangeCsvBtn").addEventListener("click",exportRangeCSV);
 $("exportFrom").addEventListener("change",updateRangeExportInfo);
@@ -1840,11 +1891,35 @@ if("IntersectionObserver" in window){
   document.querySelectorAll(".section-group").forEach(el=>sectionObserver.observe(el));
 }
 
+function showFormMessage(message){
+  const box=$("globalError");
+  const text=$("globalErrorText");
+  if(!box || !text) return;
+  text.textContent=message || "";
+  box.classList.toggle("hidden",!message);
+}
+
+function translateErrorMessage(err){
+  const raw=String(err?.message || err || "").trim();
+  const code=String(err?.code || "");
+  if(typeof navigator!=="undefined" && navigator.onLine===false) return "Keine Internetverbindung. Bitte Verbindung prüfen und erneut versuchen.";
+  if(/failed to fetch|networkerror|load failed/i.test(raw)) return "Der Server ist gerade nicht erreichbar. Bitte Internetverbindung prüfen und erneut versuchen.";
+  if(code==="23505" || /duplicate key value/i.test(raw)) return "Dieser Eintrag existiert bereits.";
+  if(code==="23514" || /violates check constraint/i.test(raw)) return "Einer der eingegebenen Werte ist ungültig. Bitte Eingabe prüfen.";
+  if(code==="23503" || /violates foreign key/i.test(raw)) return "Der zugehörige Datensatz wurde nicht gefunden. Bitte Seite neu laden.";
+  if(/jwt|refresh_token|invalid token|not authenticated/i.test(raw)) return "Deine Sitzung ist abgelaufen. Bitte neu anmelden.";
+  if(/permission denied|row-level security/i.test(raw)) return "Keine Berechtigung für diese Aktion.";
+  if(!raw) return "Es ist ein unbekannter Fehler aufgetreten.";
+  return `Es ist ein Fehler aufgetreten (${raw}).`;
+}
+
 function showError(err){
   console.error(err);
-  const msg=err?.message || String(err || "Unbekannter Fehler");
+  const msg=translateErrorMessage(err);
   toast("Fehler: "+msg);
+  showFormMessage("Fehler: "+msg);
 }
+$("globalErrorClose")?.addEventListener("click",()=>showFormMessage(""));
 
 function setAuthMessage(message,isError=false){
   const el=$("authMessage");
@@ -1927,6 +2002,12 @@ async function startAuthenticatedApp(){
   await renderLists();
   await updateElapsedSinceMeasurement();
   await updateRangeExportInfo();
+  try{
+    lastCentralSignature=JSON.stringify(currentPool)+"|"+await computeChangeSignature();
+  }catch(err){
+    console.error("Änderungssignal konnte nicht ermittelt werden",err);
+    lastCentralSignature=null;
+  }
 }
 
 async function refreshSession(){
@@ -2073,6 +2154,35 @@ async function reloadCurrentPool(){
   updatePoolIdentity();
 }
 
+// Leichtgewichtiges Änderungssignal (nur Zählungen + jüngster Zeitstempel,
+// keine vollständigen Datensätze) für refreshCentralData(). Damit lässt sich
+// erkennen, ob sich seit dem letzten Abgleich überhaupt etwas geändert hat,
+// ohne jedes Mal alle Events samt Zusatztabellen neu zu laden.
+// Bekannte Einschränkung: Eine reine Bearbeitung eines bestehenden Eintrags
+// (ohne Anlage/Löschung) von einem anderen Gerät ändert weder die Anzahl
+// noch den jüngsten Zeitstempel und wird dadurch nicht automatisch erkannt.
+// Ein manueller Wechsel zu „Alle Einträge“ lädt in diesem Fall weiterhin
+// zuverlässig den aktuellen Stand (renderLists() lädt dort immer frisch).
+async function computeChangeSignature(){
+  if(!currentUser || !currentPool) return null;
+  const [eventsCountRes,latestRes,productsCountRes,cleaningCountRes]=await Promise.all([
+    supabase.from("events").select("id",{count:"exact",head:true}).eq("pool_id",currentPool.id),
+    supabase.from("events").select("created_at").eq("pool_id",currentPool.id).order("created_at",{ascending:false}).limit(1).maybeSingle(),
+    supabase.from("products").select("id",{count:"exact",head:true}).eq("owner_user_id",currentUser.id),
+    supabase.from("pool_cleaning_types").select("id",{count:"exact",head:true}).eq("pool_id",currentPool.id)
+  ]);
+  if(eventsCountRes.error) throw eventsCountRes.error;
+  if(latestRes.error) throw latestRes.error;
+  if(productsCountRes.error) throw productsCountRes.error;
+  if(cleaningCountRes.error) throw cleaningCountRes.error;
+  return JSON.stringify({
+    events:eventsCountRes.count,
+    latest:latestRes.data?.created_at || null,
+    products:productsCountRes.count,
+    cleaning:cleaningCountRes.count
+  });
+}
+
 async function refreshCentralData({force=false}={}){
   if(!currentUser || !currentPool || recoveryMode) return;
   const now=Date.now();
@@ -2081,6 +2191,11 @@ async function refreshCentralData({force=false}={}){
 
   try{
     await reloadCurrentPool();
+    const signature=JSON.stringify(currentPool)+"|"+await computeChangeSignature();
+    if(!force && signature===lastCentralSignature) return;
+    lastCentralSignature=signature;
+
+    invalidateRecordsCache();
     await loadProducts();
     await renderLists();
     await updateElapsedSinceMeasurement();

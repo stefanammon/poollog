@@ -1,8 +1,8 @@
 # FreePoolLog4U Mini – Android-TWA-Setup für den Play Store
 
-**Stand:** 20.08.2026
+**Stand:** 20.08.2026 (final für diesen Meilenstein)
 **Version:** Mini Version 1.0.0-beta.5 (unverändert); TWA-Paketversion `1.0.0.0` / Version Code `1`
-**Status:** In Arbeit – Digital Asset Links live und verifizierbar, alle Store-Listing-Assets fertig; Play-Console-Store-Listing und interner Test blockiert durch laufende Google-Identitätsprüfung (Stand 20.08.2026)
+**Status:** Interner Test erfolgreich abgeschlossen – TWA verifiziert (kein Browser-Balken), Digital Asset Links vollständig (Upload-Key + App-Signaturschlüssel), Funktionscheck auf echtem Gerät bestanden. Kein produktiver Play-Store-Release ohne ausdrückliche Freigabe des Poolbetreibers.
 
 ## 1. Rahmenbedingung
 
@@ -14,7 +14,8 @@ FreePoolLog4U Mini ist eine fertige, getestete PWA im Release-/Feature-Freeze (s
 |---|---|
 | Package-Name (Application ID) | `de.ammon.freepoollog4u.mini` – reverse-domain mit `.mini`-Suffix, kollisionsfrei zu einer möglichen späteren Pro-App |
 | App-Signing | Play App Signing (von Google verwaltet); lokaler Upload-Key via PWABuilder erzeugt |
-| Play-Console-Konto | vorhanden |
+| Play-Console-Konto | vorhanden, privates Konto, Kontoinhaber „Stefan Ammon", Identitätsprüfung von Google abgeschlossen |
+| Entwicklername (öffentlich im Store sichtbar) | „Stefan Ammon" – unkritisch, da das Impressum in der App ohnehin Klarnamen und Adresse zeigt |
 | Build-Werkzeug | PWABuilder (pwabuilder.com), erster Durchlauf ohne lokales Bubblewrap-Setup |
 | TWA-Fallback-Verhalten | Custom Tabs (statt Web View) |
 | Google Play Billing | deaktiviert (Mini bleibt kostenlos, keine Store-Zahlungsanbindung) |
@@ -59,7 +60,7 @@ Download enthält: `app-release-bundle.aab`, `signing.keystore`, `signingkeyinfo
 
 ## 6. Digital Asset Links (`assetlinks.json`)
 
-Inhalt (Upload-Key-Fingerabdruck, von PWABuilder generiert):
+**Finaler Inhalt** (Upload-Key-Fingerabdruck + Play-App-Signing-Fingerabdruck):
 
 ```json
 [{
@@ -67,14 +68,19 @@ Inhalt (Upload-Key-Fingerabdruck, von PWABuilder generiert):
   "target": {
     "namespace": "android_app",
     "package_name": "de.ammon.freepoollog4u.mini",
-    "sha256_cert_fingerprints": ["BB:72:45:B8:39:89:81:80:75:F1:7D:DE:6F:DA:5A:1F:D3:B1:D8:9C:2C:21:A0:81:FD:C2:FC:20:AA:D5:01:61"]
+    "sha256_cert_fingerprints": [
+      "BB:72:45:B8:39:89:81:80:75:F1:7D:DE:6F:DA:5A:1F:D3:B1:D8:9C:2C:21:A0:81:FD:C2:FC:20:AA:D5:01:61",
+      "F3:26:20:CA:C1:AC:3C:5A:B7:ED:3A:37:54:8F:9D:A4:D4:1C:C3:A8:8C:63:D4:E0:DA:2F:C4:22:95:5A:F6:E7"
+    ]
   }
 }]
 ```
 
-Live und verifiziert unter `https://stefanammon.github.io/.well-known/assetlinks.json`.
+- Erster Fingerabdruck = Uploadschlüssel (lokal von PWABuilder generiert)
+- Zweiter Fingerabdruck = App-Signaturschlüssel (von Google verwaltet, Play App Signing). Fundort in der Play Console: *App-Eintrag → Mit Google Play geschützt → Google Play Store-Schutz → „App-Signaturschlüssel schützen" → „Play App-Signatur verwalten"* (Navigation wurde von Google zwischenzeitlich mehrfach umbenannt/verschoben, ursprünglich unter „Setup → App-Integrität").
+- Zugehöriger SHA-1-Fingerabdruck des App-Signaturschlüssels (aktuell nicht in `assetlinks.json` benötigt, nur zur Referenz notiert): `D4:52:35:B0:4D:F8:0E:D1:9E:C4:4B:04:C7:63:93:F9:50:F6:34:D5`
 
-**Offener Nachtrag:** Nach dem ersten Upload des `.aab` in die Play Console liefert Google unter *Setup → App-Integrität → App-Signaturschlüssel-Zertifikat* einen zusätzlichen SHA-256-Fingerabdruck (Play-App-Signing-Zertifikat, unterscheidet sich vom lokalen Upload-Key). Dieser sollte als zweiter Eintrag im `sha256_cert_fingerprints`-Array ergänzt werden, damit die TWA-Verifizierung auch nach der Google-seitigen Neusignierung zuverlässig funktioniert.
+Live und verifiziert unter `https://stefanammon.github.io/.well-known/assetlinks.json` (beide Fingerabdrücke bestätigt, Stand 20.08.2026).
 
 ## 7. Store-Listing-Icon
 
@@ -89,24 +95,29 @@ Alle für das Store-Listing benötigten Materialien sind erstellt und liegen ber
 - 4 Smartphone-Screenshots vom Poolbetreiber bereitgestellt (Messungs-Formular, Messwert-Historie, letzte Einträge, Menü/Export) – empfohlene Reihenfolge: Formular → Historie → Einträge → Menü
 - Datenschutz-Link: `https://stefanammon.github.io/poollog/datenschutz.html`
 
-## 9. Play-Console-Kontoeinrichtung – aktueller Blocker
+## 9. Play-Console-Kontoeinrichtung und interner Test
 
-Entwicklerkonto wurde als **privates Konto** unter dem Namen „Stefan Ammon" angelegt. Google verlangt vor jeder App-Veröffentlichung eine mehrteilige Identitätsprüfung:
+Entwicklerkonto wurde als **privates Konto** unter dem Namen „Stefan Ammon" angelegt. Die Google-Identitätsprüfung (Ausweisdokument, Android-Gerät, Kontakttelefonnummer) ist **abgeschlossen**.
 
-1. Identität bestätigen (Ausweisdokument hochgeladen) – **in Prüfung bei Google, Stand 20.08.2026**, laut Google „kann einige Tage dauern", Benachrichtigung per E-Mail
-2. Zugriff auf ein Android-Mobilgerät bestätigen (via Play-Console-App) – noch offen
-3. Kontakttelefonnummer bestätigen – **gesperrt**, bis Schritt 1 abgeschlossen ist
+Ablauf des internen Tests:
 
-Solange Schritt 1 nicht abgeschlossen ist, ist unklar, ob das Anlegen eines neuen App-Eintrags in der Play Console bereits möglich ist oder ebenfalls blockiert wird – wird beim nächsten Anlauf geprüft.
+1. ✅ App in der Play Console angelegt mit Package-Name `de.ammon.freepoollog4u.mini`
+2. ✅ Interner Testtrack eingerichtet, Tester-E-Mail-Liste „Tester1" (enthält `s.ammon.login@gmail.com`)
+3. ✅ `FreePoolLog4U Mini.aab` hochgeladen (Version 1, `1.0.0.0`, 1.57 MB, API-Level 23+, Ziel-SDK 36)
+4. ✅ Release veröffentlicht – keine zusätzlichen Pflichtangaben (Content-Rating, Data-Safety-Formular) verlangt
+5. ✅ Installation auf echtem Android-Gerät über den „Testern beitreten"-Link. Stolperstein dabei: Auf dem Testgerät war zunächst ein anderes Google-Konto aktiv als das aus der Tester-Liste – nach Anmeldung mit dem richtigen Konto (`s.ammon.login@gmail.com`) funktionierte die Einladung und Installation reibungslos.
+6. ✅ **Kernprüfung bestanden:** App startet ohne Browser-Adressleiste – die Digital-Asset-Links-Verifizierung greift.
+7. ✅ Play-App-Signing-Fingerabdruck ermittelt und `assetlinks.json` um zweiten Eintrag ergänzt (siehe Abschnitt 6)
+8. ✅ **Funktionscheck bestanden:** Messformular, Messwert-Historie, Speichern und weitere Kernfunktionen innerhalb der TWA getestet – Supabase-Anbindung und alle Funktionen laufen wie in der Browser-PWA.
+
+Damit ist der interne Test vollständig und erfolgreich abgeschlossen.
+
+**Hinweis zu Interne App-Freigabe:** Play Console bietet neben dem regulären internen Testtrack auch „Interne App-Freigabe" (Internal App Sharing) für sofortige, prüfungsfreie Verteilung von Testbuilds. Dabei signiert Google das Paket jedoch mit einem separaten, geteilten Test-Zertifikat – nicht mit dem echten Upload- oder App-Signaturschlüssel. Für die TWA-Kernprüfung (kein Browser-Balken) ist dieser Verteilweg daher **nicht geeignet**, da der Fingerabdruck nicht zu `assetlinks.json` passt. Nur der reguläre interne Testtrack liefert ein aussagekräftiges Ergebnis für die Digital-Asset-Links-Verifizierung.
 
 ## 10. Offene Punkte
 
-- Play-Console-Identitätsprüfung abwarten (Google-seitig, siehe Abschnitt 9)
-- Danach: App-Eintrag in der Play Console anlegen, Store-Listing mit den in Abschnitt 8 fertigen Assets befüllen
-- `.aab` in den internen Testtrack hochladen
-- Nach Erstupload: Play-App-Signing-Fingerabdruck ermitteln (*Setup → App-Integrität → App-Signaturschlüssel-Zertifikat*) und `assetlinks.json` um zweiten Eintrag ergänzen
-- Installation auf echtem Android-Gerät über den internen Testtrack prüfen: App muss ohne Browser-Toolbar starten (Nachweis erfolgreicher TWA-Verifizierung)
-- Kein produktiver Play-Store-Release ohne ausdrückliche Freigabe des Poolbetreibers
+- Setup-Doku ist mit diesem Stand abgeschlossen für den Meilenstein „interner Test"
+- **Kein produktiver Play-Store-Release ohne ausdrückliche Freigabe des Poolbetreibers** – der interne Test ist erfolgreich, die Entscheidung über den offenen/Produktions-Track liegt beim Poolbetreiber und ist bewusst nicht automatisch ausgeführt worden
 
 ## 11. Durchgeführte Prüfungen
 
@@ -115,6 +126,8 @@ Solange Schritt 1 nicht abgeschlossen ist, ist unklar, ob das Anlegen eines neue
 | `https://stefanammon.github.io/poollog/` live, Version beta.5 bestätigt | PASS |
 | `datenschutz.html` live und inhaltlich korrekt | PASS |
 | `icon-512.png` Alphakanal-Prüfung (Python/Pillow) | Transparenz bestätigt, deckende Variante erzeugt |
-| `https://stefanammon.github.io/.well-known/assetlinks.json` live, valides JSON mit korrektem Package-Namen und Fingerabdruck | PASS |
-| Installation/TWA-Verifizierung auf echtem Android-Gerät | offen |
-| Play-Console-Store-Listing vollständig | offen |
+| `https://stefanammon.github.io/.well-known/assetlinks.json` live, valides JSON mit korrektem Package-Namen und beiden Fingerabdrücken (Upload-Key + App-Signaturschlüssel) | PASS |
+| Installation über internen Testtrack auf echtem Android-Gerät | PASS |
+| TWA-Verifizierung (kein Browser-Balken beim App-Start) | PASS |
+| Funktionscheck innerhalb der TWA (Messformular, Historie, Speichern) | PASS |
+| Play-Console-Store-Listing vollständig | PASS (keine zusätzlichen Pflichtangaben von Google verlangt) |

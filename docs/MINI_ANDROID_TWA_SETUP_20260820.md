@@ -2,7 +2,7 @@
 
 **Stand:** 20.08.2026
 **Version:** Mini Version 1.0.0-beta.5 (unverändert); TWA-Paketversion `1.0.0.0` / Version Code `1`
-**Status:** In Arbeit – Digital Asset Links live und verifizierbar, Play-Console-Store-Listing und interner Test noch offen
+**Status:** In Arbeit – Digital Asset Links live und verifizierbar, alle Store-Listing-Assets fertig; Play-Console-Store-Listing und interner Test blockiert durch laufende Google-Identitätsprüfung (Stand 20.08.2026)
 
 ## 1. Rahmenbedingung
 
@@ -80,16 +80,35 @@ Live und verifiziert unter `https://stefanammon.github.io/.well-known/assetlinks
 
 `icon-512.png` enthält einen echten Alphakanal (transparente Bereiche außerhalb der eingebackenen abgerundeten Form) – Play verlangt für das Store-Icon ein deckendes PNG. Es wurde eine geflachte Variante mit weißem Hintergrund erzeugt und vom Poolbetreiber als finale Store-Icon-Version bestätigt. Die Rundung ist im Ausgangsdesign bereits eingebacken; dadurch entsteht ein sichtbarer weißer Rand um die Form (bewusst akzeptiert, keine Neugestaltung des Icons im Rahmen dieser Aufgabe).
 
-## 8. Offene Punkte
+## 8. Store-Listing-Assets (fertig)
 
-- Play-Console-Ersteinrichtung: App-Eintrag anlegen, `.aab` in den internen Testtrack hochladen
-- Store-Listing-Assets: Feature-Grafik (1024×500, noch zu erstellen), mind. 2 Smartphone-Screenshots, Kurzbeschreibung (≤ 80 Zeichen), Langbeschreibung (≤ 4000 Zeichen)
-- Datenschutz-URL (`datenschutz.html`) in der Play Console als Store-Listing-Link hinterlegen
-- Nach Erstupload: Play-App-Signing-Fingerabdruck ermitteln und `assetlinks.json` um zweiten Eintrag ergänzen
+Alle für das Store-Listing benötigten Materialien sind erstellt und liegen bereit zum Eintragen in die Play Console, sobald die Kontoeinrichtung abgeschlossen ist:
+
+- Feature-Grafik 1024×500 (Farbverlauf/Wellenmotiv passend zur bestehenden Markenwelt, Icon freigestellt eingebettet, Slogan „Einfach · Sicher · Kristallklar" aus dem bestehenden Splash-Screen übernommen)
+- Kurzbeschreibung (74 Zeichen) und Langbeschreibung (~1.580 Zeichen), beta-spezifische Formulierungen entfernt, Positionierungssatz „Mini dokumentiert. Es dosiert nicht. Es berät nicht." als Eröffnung
+- 4 Smartphone-Screenshots vom Poolbetreiber bereitgestellt (Messungs-Formular, Messwert-Historie, letzte Einträge, Menü/Export) – empfohlene Reihenfolge: Formular → Historie → Einträge → Menü
+- Datenschutz-Link: `https://stefanammon.github.io/poollog/datenschutz.html`
+
+## 9. Play-Console-Kontoeinrichtung – aktueller Blocker
+
+Entwicklerkonto wurde als **privates Konto** unter dem Namen „Stefan Ammon" angelegt. Google verlangt vor jeder App-Veröffentlichung eine mehrteilige Identitätsprüfung:
+
+1. Identität bestätigen (Ausweisdokument hochgeladen) – **in Prüfung bei Google, Stand 20.08.2026**, laut Google „kann einige Tage dauern", Benachrichtigung per E-Mail
+2. Zugriff auf ein Android-Mobilgerät bestätigen (via Play-Console-App) – noch offen
+3. Kontakttelefonnummer bestätigen – **gesperrt**, bis Schritt 1 abgeschlossen ist
+
+Solange Schritt 1 nicht abgeschlossen ist, ist unklar, ob das Anlegen eines neuen App-Eintrags in der Play Console bereits möglich ist oder ebenfalls blockiert wird – wird beim nächsten Anlauf geprüft.
+
+## 10. Offene Punkte
+
+- Play-Console-Identitätsprüfung abwarten (Google-seitig, siehe Abschnitt 9)
+- Danach: App-Eintrag in der Play Console anlegen, Store-Listing mit den in Abschnitt 8 fertigen Assets befüllen
+- `.aab` in den internen Testtrack hochladen
+- Nach Erstupload: Play-App-Signing-Fingerabdruck ermitteln (*Setup → App-Integrität → App-Signaturschlüssel-Zertifikat*) und `assetlinks.json` um zweiten Eintrag ergänzen
 - Installation auf echtem Android-Gerät über den internen Testtrack prüfen: App muss ohne Browser-Toolbar starten (Nachweis erfolgreicher TWA-Verifizierung)
 - Kein produktiver Play-Store-Release ohne ausdrückliche Freigabe des Poolbetreibers
 
-## 9. Durchgeführte Prüfungen
+## 11. Durchgeführte Prüfungen
 
 | Prüfung | Ergebnis |
 |---|---|

@@ -296,6 +296,7 @@ html{scroll-behavior:smooth}
 /* Beta 4 – Registrierungsfeedback und konfigurierbare Reinigungsarten */
 .registration-help{text-align:left;margin:12px 2px 4px}
 button:disabled{opacity:.62;cursor:wait}
+button:disabled:not([aria-busy="true"]){cursor:not-allowed}
 .config-list{display:grid;gap:8px;margin:12px 0}
 .config-row,.config-add-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center}
 .config-row input,.config-add-row input{min-width:0}

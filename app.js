@@ -17,6 +17,8 @@ let lastAutoRefreshAt = 0;
 let lastCentralSignature = null;
 let products = [];
 let recordsCache = null;
+let formBaseline = null;
+let timestampAutoRefreshTimer = null;
 
 const $ = id => document.getElementById(id);
 const form = $("entryForm");
@@ -1171,7 +1173,7 @@ function updatePoolIdentity(){
   }
 }
 
-function setDefaults(){
+async function setDefaults(){
   form.reset();
   showFormMessage("");
   $("Aktion").value="Messung";
@@ -1190,8 +1192,9 @@ function setDefaults(){
     if(s){ s.dataset.touched="0"; setStateUI(prefix,"",false); }
   }
   updateActionUI();
-  updateElapsedSinceMeasurement();
+  await updateElapsedSinceMeasurement();
   updateSectionProgress();
+  captureFormBaseline();
 }
 
 function updateWaterExchangeUI(){
@@ -1412,6 +1415,68 @@ function validateRecord(rec){
   return "";
 }
 
+// --- Dirty-State-Tracking für #saveBtn ---------------------------------
+// Referenzzustand (formBaseline) wird nach setDefaults() bzw. nach dem
+// Laden eines Datensatzes zum Bearbeiten (editRecord) festgehalten.
+// #saveBtn ist nur aktiv, wenn buildRecord() vom Referenzzustand abweicht.
+
+function snapshotFormRecord(){
+  return JSON.stringify(buildRecord());
+}
+
+function captureFormBaseline(){
+  formBaseline = snapshotFormRecord();
+  updateSaveButtonState();
+}
+
+function isFormDirty(){
+  if(formBaseline===null) return false;
+  return snapshotFormRecord()!==formBaseline;
+}
+
+function updateSaveButtonState(){
+  const btn=$("saveBtn");
+  if(!btn) return;
+  if(btn.getAttribute("aria-busy")==="true") return; // während des Speicherns nicht eingreifen
+  btn.disabled=!isFormDirty();
+}
+
+// --- Datum/Uhrzeit aktuell halten (Option C) ----------------------------
+// Solange im Formular noch nichts geändert wurde (Neuerfassung, kein
+// Bearbeiten-Modus), werden Datum/Uhrzeit periodisch nachgezogen, damit der
+// vorbelegte Zeitpunkt beim tatsächlichen Speichern nicht mehr "einfriert".
+// Der Referenzzustand (formBaseline) wandert dabei mit, damit dieses
+// automatische Nachziehen selbst nicht als Nutzeränderung gilt.
+
+async function refreshDefaultTimestampIfIdle(){
+  if(!currentPool) return;      // App noch nicht bereit / nicht eingeloggt
+  if(editingId!==null) return;  // Bearbeiten bestehender Einträge: Zeitpunkt bleibt der ursprüngliche
+  if(isFormDirty()) return;     // Nutzer hat bereits ein Feld manuell geändert
+
+  const dateEl=$("Datum"), timeEl=$("Uhrzeit");
+  if(!dateEl || !timeEl) return;
+  const now=new Date();
+  const newDate=localDateString(now), newTime=localTimeString(now);
+  if(dateEl.value===newDate && timeEl.value===newTime) return;
+
+  dateEl.value=newDate;
+  timeEl.value=newTime;
+  // updateElapsedSinceMeasurement() aktualisiert intern (applyIntervalDefaults)
+  // ggf. auch die Intervall-Vorschläge – erst danach die Baseline einfrieren,
+  // damit dieses automatische Nachziehen nicht selbst als Änderung gilt.
+  await updateElapsedSinceMeasurement();
+  updateSectionProgress();
+  captureFormBaseline();
+}
+
+function startTimestampAutoRefresh(){
+  if(timestampAutoRefreshTimer) return;
+  timestampAutoRefreshTimer=setInterval(refreshDefaultTimestampIfIdle,30000);
+  document.addEventListener("visibilitychange",()=>{
+    if(document.visibilityState==="visible") refreshDefaultTimestampIfIdle();
+  });
+}
+
 function toast(msg){
   const t=$("toast"); t.textContent=msg; t.classList.add("show");
   clearTimeout(window.__toastTimer);
@@ -1614,6 +1679,7 @@ async function editRecord(id){
   }
 
   updateSectionProgress();
+  captureFormBaseline();
   window.scrollTo({top:0,behavior:"smooth"});
 }
 
@@ -1724,7 +1790,7 @@ form.addEventListener("submit",async e=>{
   if(collision){
     const proceed=confirm(`Für ${formatGermanDate(rec.Datum)} um ${rec.Uhrzeit||"–"} Uhr existiert bereits ein Eintrag. Trotzdem speichern?`);
     if(!proceed){
-      setDefaults();
+      await setDefaults();
       return;
     }
   }
@@ -1743,17 +1809,25 @@ form.addEventListener("submit",async e=>{
     if(editingId===null) await addRecord(rec); else await putRecord(rec);
     const msg=editingId===null ? "Zentral gespeichert" : "Änderung zentral gespeichert";
     await renderLists();
-    setDefaults();
+    await setDefaults();
     toast(msg);
     window.scrollTo({top:0,behavior:"smooth"});
   }catch(err){
     showError(err);
   }finally{
-    btn.disabled=false;
     btn.removeAttribute("aria-busy");
     if(btn.textContent==="Speichert …") btn.textContent=originalLabel;
+    updateSaveButtonState();
   }
 });
+
+// Zentrales Dirty-State-Tracking: eine einzige Änderungserkennung für das
+// gesamte Formular statt einzelner Listener pro Feld (deckt auch dynamisch
+// erzeugte Elemente wie Reinigungsarten, Produktauswahl und
+// Beckenauffälligkeiten ab, da sie alle innerhalb von #entryForm liegen).
+form.addEventListener("input",updateSaveButtonState);
+form.addEventListener("change",updateSaveButtonState);
+startTimestampAutoRefresh();
 
 $("Aktion").addEventListener("change",async()=>{
   updateActionUI();
@@ -1996,7 +2070,7 @@ async function startAuthenticatedApp(){
   switchView("entryView");
   updateHeader();
   await Promise.all([loadCleaningTypes(),loadProducts()]);
-  setDefaults();
+  await setDefaults();
   $("exportFrom").value=localDateString();
   $("exportTo").value=localDateString();
   await renderLists();

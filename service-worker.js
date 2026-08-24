@@ -1,5 +1,5 @@
 importScripts("./version.js");
-const CACHE=`poollog-mini-${self.FPL_VERSION || "dev"}-postfreeze-20260822a`;
+const CACHE=`poollog-mini-${self.FPL_VERSION || "dev"}-postfreeze-20260824a`;
 const ASSETS=["./","./index.html","./styles.css","./version.js","./app.js","./manifest.webmanifest","./sam-logo.png","./icon-192.png","./icon-512.png","./apple-touch-icon.png","./favicon-32.png"];
 
 self.addEventListener("install",event=>{

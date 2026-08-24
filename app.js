@@ -7,6 +7,19 @@ const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_77QwPv7tJrTenyrHGZHjWg_2UTuzVgk
 const SITE_URL = "https://stefanammon.github.io/poollog/";
 const HEADERS = ["Kürzel", "Datum", "Uhrzeit", "Aktion", "Reinigungsarten", "Wasserlinie", "Wassertemperatur", "Außentemperatur", "Innendach", "fCl", "fCl_Status", "CYA", "TA", "pH", "Wasseroptik", "Dach_Offen_h", "Badebetrieb_h", "Chlorschwimmer_h", "Pumpe_h", "CHC_g", "Wasserpflegeart", "Produkt_Hersteller", "Produkt_Name", "Produktart", "Menge", "Einheit", "Mengenerfassung", "Wasseruhr_vorher_m3", "Wasseruhr_nachher_m3", "Wasserlinie_vorher_mm", "Wasserlinie_nach_Ablassen_mm", "Wasserlinie_nach_Auffuellen_mm", "Entferntes_Wasser_l", "Zugefuehrtes_Wasser_l", "Wasserstandsaenderung_cm", "Wassermenge_l", "Beckenbefund", "Notiz"];
 
+// Spalten, die numerische Werte mit möglichen Nachkommastellen enthalten. Intern (DB, JSON-Backup,
+// buildRecord()/validateRecord()) bleibt für diese Felder durchgehend der Punkt als Dezimaltrennzeichen
+// in Verwendung (JS-Number-Konvention) - nur beim CSV-Export wird für die für deutsches Excel/Power
+// Query passende Semikolon-Konvention (Komma als Dezimaltrennzeichen) einmalig zentral umformatiert,
+// siehe formatCsvField(). So bleibt z. B. Number(rec.CHC_g) an allen internen Stellen unverändert gültig.
+const NUMERIC_CSV_HEADERS = new Set([
+  "Wasserlinie", "Wassertemperatur", "Außentemperatur", "fCl", "CYA", "TA", "pH",
+  "Dach_Offen_h", "Badebetrieb_h", "Chlorschwimmer_h", "Pumpe_h", "CHC_g", "Menge",
+  "Wasseruhr_vorher_m3", "Wasseruhr_nachher_m3", "Wasserlinie_vorher_mm",
+  "Wasserlinie_nach_Ablassen_mm", "Wasserlinie_nach_Auffuellen_mm",
+  "Entferntes_Wasser_l", "Zugefuehrtes_Wasser_l", "Wasserstandsaenderung_cm", "Wassermenge_l"
+]);
+
 const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 let currentUser = null;
 let currentPool = null;
@@ -387,6 +400,13 @@ function nullableNumber(value){
   return Number.isFinite(n) ? n : null;
 }
 
+// Rundet auf 3 Nachkommastellen, um IEEE-754-Rundungsartefakte zu vermeiden, wie sie bei
+// (meterAfter-meterBefore)*1000 entstehen können (z. B. 480.00000000000006 statt 480). Wasseruhren
+// lösen ohnehin nur bis 0,001 m³ (= 1 l) auf, sodass keine echte Genauigkeit verloren geht.
+function roundLiters(value){
+  return value===null || !Number.isFinite(value) ? value : Math.round(value*1000)/1000;
+}
+
 function eventFromDb(row){
   const record={
     _id:row.id,
@@ -414,15 +434,22 @@ function eventFromDb(row){
     "CHC_g":dbNumberText(row.chc_g),
     "Notiz":dbText(row.note)
   };
-  if(row.action==="Wasserfüllung" || row.waterline_before_mm!=null || row.water_added_volume_l!=null){
+  if(row.action==="Wasserfüllung" || row.waterline_before_mm!=null || row.water_added_volume_l!=null || row.meter_before_m3!=null || row.meter_after_m3!=null){
     record._waterFill={
       waterline_before_mm:row.waterline_before_mm,
       waterline_after_mm:row.waterline_mm,
-      added_volume_l:row.water_added_volume_l
+      added_volume_l:row.water_added_volume_l,
+      meter_before_m3:row.meter_before_m3??null,
+      meter_after_m3:row.meter_after_m3??null
     };
     record["Wasserlinie_vorher_mm"]=dbNumberText(row.waterline_before_mm);
     record["Wasserlinie_nach_Auffuellen_mm"]=dbNumberText(row.waterline_mm);
     record["Zugefuehrtes_Wasser_l"]=dbNumberText(row.water_added_volume_l);
+    if(row.meter_before_m3!=null && row.meter_after_m3!=null){
+      record["Mengenerfassung"]="water_meter";
+      record["Wasseruhr_vorher_m3"]=dbNumberText(row.meter_before_m3);
+      record["Wasseruhr_nachher_m3"]=dbNumberText(row.meter_after_m3);
+    }
   }
   return record;
 }
@@ -438,6 +465,8 @@ function eventToDb(record){
     waterline_mm:nullableNumber(record["Wasserlinie"]),
     waterline_before_mm:record._waterFill ? nullableNumber(record._waterFill.waterline_before_mm) : null,
     water_added_volume_l:record._waterFill ? nullableNumber(record._waterFill.added_volume_l) : null,
+    meter_before_m3:record._waterFill ? nullableNumber(record._waterFill.meter_before_m3) : null,
+    meter_after_m3:record._waterFill ? nullableNumber(record._waterFill.meter_after_m3) : null,
     water_temp_c:nullableNumber(record["Wassertemperatur"]),
     air_temp_c:nullableNumber(record["Außentemperatur"]),
     inner_roof:nullableText(record["Innendach"]),
@@ -1312,12 +1341,25 @@ function buildRecord(){
     const after=nullableNumber(valueOf("WasserlinieOther"));
     const amount=nullableNumber(valueOf("WaterFillAddedAmount"));
     const unit=valueOf("WaterFillAddedUnit") || "l";
-    const addedLiters=Number.isFinite(amount) ? (unit==="m3" ? amount*1000 : amount) : null;
+    const manualLiters=Number.isFinite(amount) ? (unit==="m3" ? amount*1000 : amount) : null;
+    const meterBefore=nullableNumber(valueOf("WaterFillMeterBefore"));
+    const meterAfter=nullableNumber(valueOf("WaterFillMeterAfter"));
+    const meterValid=Number.isFinite(meterBefore) && Number.isFinite(meterAfter) && meterAfter>meterBefore;
+    const meterLiters=meterValid ? roundLiters((meterAfter-meterBefore)*1000) : null;
+    const addedLiters=meterValid ? meterLiters : manualLiters;
     rec["Wasserlinie"]=after===null ? "" : String(after);
     rec["Wasserlinie_vorher_mm"]=before===null ? "" : String(before);
     rec["Wasserlinie_nach_Auffuellen_mm"]=after===null ? "" : String(after);
     rec["Zugefuehrtes_Wasser_l"]=addedLiters===null ? "" : String(addedLiters);
-    rec._waterFill={waterline_before_mm:before,waterline_after_mm:after,added_volume_l:addedLiters};
+    if(meterValid){
+      rec["Mengenerfassung"]="water_meter";
+      rec["Wasseruhr_vorher_m3"]=String(meterBefore);
+      rec["Wasseruhr_nachher_m3"]=String(meterAfter);
+    }
+    // meterBefore/meterAfter werden auch dann in _waterFill gehalten, wenn sie (noch) nicht
+    // vollständig/gültig sind, damit validateRecord() eine nur halb ausgefüllte Wasseruhr-Eingabe
+    // erkennen und ablehnen kann statt sie stillschweigend zu verwerfen.
+    rec._waterFill={waterline_before_mm:before,waterline_after_mm:after,added_volume_l:addedLiters,meter_before_m3:meterBefore,meter_after_m3:meterAfter};
   } else if(careAction){
     const isExchange=careAction==="water_exchange_partial" || careAction==="water_exchange_full";
     if(isExchange){
@@ -1335,7 +1377,7 @@ function buildRecord(){
       const removedLiters=(method==="direct_volume" && Number.isFinite(directAmount)) ? (directUnit==="m3" ? directAmount*1000 : directAmount) : null;
       let addedLiters=null;
       if(method==="direct_volume" && Number.isFinite(addedDirectAmount)) addedLiters=addedDirectUnit==="m3" ? addedDirectAmount*1000 : addedDirectAmount;
-      if(method==="water_meter" && Number.isFinite(meterBefore) && Number.isFinite(meterAfter) && meterAfter>meterBefore) addedLiters=(meterAfter-meterBefore)*1000;
+      if(method==="water_meter" && Number.isFinite(meterBefore) && Number.isFinite(meterAfter) && meterAfter>meterBefore) addedLiters=roundLiters((meterAfter-meterBefore)*1000);
       // level_change_cm bleibt ausschließlich für bereits vorhandene Legacy-Datensätze erhalten.
       const legacyLevelChangeCm=null;
       if(isPartial && Number.isFinite(waterlineAfterRefill)) rec["Wasserlinie"]=String(waterlineAfterRefill);
@@ -1397,8 +1439,11 @@ function validateRecord(rec){
   }
   if(rec.Aktion==="Wasserfüllung" && rec._waterFill){
     const b=rec._waterFill.waterline_before_mm, a=rec._waterFill.waterline_after_mm, v=rec._waterFill.added_volume_l;
+    const mb=rec._waterFill.meter_before_m3, ma=rec._waterFill.meter_after_m3;
     if(v!==null && (!Number.isFinite(Number(v)) || Number(v)<=0)) return "Bitte die zugeführte Wassermenge prüfen.";
     if(b!==null && a!==null && Number(a)<=Number(b)) return "Die Wasserlinie nach dem Auffüllen muss über der Wasserlinie vor dem Auffüllen liegen. Bitte Vorzeichen bzw. Eingabe prüfen.";
+    if((mb!==null) !== (ma!==null)) return "Bitte beide Wasseruhrstände eintragen (vorher und nachher) oder beide leer lassen.";
+    if(mb!==null && ma!==null && Number(ma)<=Number(mb)) return "Bitte die Wasseruhrstände prüfen (Endstand muss über dem Anfangsstand liegen).";
   }
   const usesWaterline=rec["Wasserlinie"]!=="" || rec._waterFill?.waterline_before_mm!=null || rec._waterCare?.waterline_before_mm!=null || rec._waterCare?.waterline_after_drain_mm!=null || rec._waterCare?.waterline_after_refill_mm!=null;
   if(usesWaterline && !currentPool?.waterline_reference_confirmed_at) return "Lege zuerst unter Stammdaten Deine feste Wasserlinien-0-Marke verbindlich fest.";
@@ -1508,7 +1553,12 @@ function humanSummary(r){
     const d=r._waterFill;
     const signed=v=>{ const n=Number(v); return Number.isFinite(n) && n>0 ? `+${v}` : String(v); };
     if(d.waterline_before_mm!==null && d.waterline_before_mm!==undefined) bits.push(`Wasserlinie vorher: ${signed(d.waterline_before_mm)} mm`);
-    if(d.added_volume_l!==null && d.added_volume_l!==undefined) bits.push(`Auffüllung: ${d.added_volume_l} l`);
+    if(d.meter_before_m3!==null && d.meter_before_m3!==undefined && d.meter_after_m3!==null && d.meter_after_m3!==undefined){
+      const added=d.added_volume_l!==null && d.added_volume_l!==undefined ? ` · ${d.added_volume_l} l zugeführt` : "";
+      bits.push(`Wasseruhr ${d.meter_before_m3} → ${d.meter_after_m3} m³${added}`);
+    } else if(d.added_volume_l!==null && d.added_volume_l!==undefined) {
+      bits.push(`Auffüllung: ${d.added_volume_l} l`);
+    }
     if(d.waterline_after_mm!==null && d.waterline_after_mm!==undefined) bits.push(`Wasserlinie nachher: ${signed(d.waterline_after_mm)} mm`);
   }
   if(r.Wasserlinie!=="" && r.Aktion!=="Wasserfüllung" && !(r.Aktion==="Wasserpflege" && r._waterCare?.waterline_after_refill_mm!==null && r._waterCare?.waterline_after_refill_mm!==undefined)) bits.push(`Wasserlinie ${r.Wasserlinie} mm`);
@@ -1634,6 +1684,8 @@ async function editRecord(id){
     if($("WaterFillBeforeMm")) $("WaterFillBeforeMm").value=r._waterFill?.waterline_before_mm??"";
     if($("WaterFillAddedAmount")) $("WaterFillAddedAmount").value=r._waterFill?.added_volume_l??"";
     if($("WaterFillAddedUnit")) $("WaterFillAddedUnit").value="l";
+    if($("WaterFillMeterBefore")) $("WaterFillMeterBefore").value=r._waterFill?.meter_before_m3??"";
+    if($("WaterFillMeterAfter")) $("WaterFillMeterAfter").value=r._waterFill?.meter_after_m3??"";
   }
   if(r.Aktion==="Wasserpflege" && r._waterCare){
     const d=r._waterCare;
@@ -1697,11 +1749,23 @@ function csvEscape(value){
   const s=String(value??"");
   return /[;"\r\n]/.test(s) ? `"${s.replaceAll('"','""')}"` : s;
 }
+// Formatiert einen Feldwert f\u00fcr den Semikolon-getrennten CSV-Export: f\u00fcr als numerisch bekannte
+// Spalten (NUMERIC_CSV_HEADERS) wird ein vorhandener Punkt-Dezimaltrenner auf Komma umgestellt, damit
+// deutsches Excel/Power Query die Spalte beim Import direkt als Zahl mit korrekten Nachkommastellen
+// erkennt, ohne dass Feldtypen manuell nachbearbeitet werden m\u00fcssen. Nicht-numerische bzw. leere Werte
+// bleiben unver\u00e4ndert.
+function formatCsvField(header,value){
+  if(NUMERIC_CSV_HEADERS.has(header)){
+    const s=String(value??"");
+    if(s!=="" && Number.isFinite(Number(s))) return s.replace(".",",");
+  }
+  return value;
+}
 async function exportCSV(){
   const rows=await getAllRecords();
   rows.sort(compareRecordsAsc);
   const lines=[HEADERS.map(csvEscape).join(";")];
-  for(const r of rows) lines.push(HEADERS.map(h=>csvEscape(r[h])).join(";"));
+  for(const r of rows) lines.push(HEADERS.map(h=>csvEscape(formatCsvField(h,r[h]))).join(";"));
   download("\ufeff"+lines.join("\r\n"),`Pool_Masterdaten_${localDateString()}.csv`,"text/csv;charset=utf-8");
 }
 
@@ -1719,7 +1783,7 @@ async function exportRangeCSV(){
   if(!rows.length){ toast("Keine Ereignisse in diesem Zeitraum."); return; }
 
   const lines=[HEADERS.map(csvEscape).join(";")];
-  for(const r of rows) lines.push(HEADERS.map(h=>csvEscape(r[h])).join(";"));
+  for(const r of rows) lines.push(HEADERS.map(h=>csvEscape(formatCsvField(h,r[h]))).join(";"));
   const suffix=from===to ? from : `${from}_bis_${to}`;
   download("\ufeff"+lines.join("\r\n"),`Pool_Masterdaten_${suffix}.csv`,"text/csv;charset=utf-8");
 }

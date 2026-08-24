@@ -454,6 +454,11 @@
             <label class="field"><span>Zugeführtes Wasser <small>optional</small></span><input id="WaterFillAddedAmount" type="number" min="0" step="0.01" inputmode="decimal" placeholder="z. B. 500"></label>
             <label class="field"><span>Einheit</span><select id="WaterFillAddedUnit"><option value="l">l</option><option value="m3">m³</option></select></label>
           </div>
+          <p class="hint">Alternativ statt der manuellen Wassermenge: Wenn beide Wasseruhrstände eingetragen werden, wird die zugeführte Menge automatisch daraus berechnet und die manuelle Angabe oben ignoriert.</p>
+          <div class="two-col">
+            <label class="field"><span>Wasseruhr vor Auffüllen <small>m³, optional</small></span><input id="WaterFillMeterBefore" type="number" min="0" step="0.001" inputmode="decimal"></label>
+            <label class="field"><span>Wasseruhr nach Auffüllen <small>m³, optional</small></span><input id="WaterFillMeterAfter" type="number" min="0" step="0.001" inputmode="decimal"></label>
+          </div>
         </div>
 
         <div class="card">

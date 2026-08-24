@@ -97,13 +97,29 @@ Da diese Session keinen Zugriff auf einen echten Browser mit laufender Supabase-
 
 Keine Änderung der Produktversion `1.0.0-beta.5`. Keine Änderungen am Android-TWA-Wrapper. Keine rückwirkende Korrektur historischer Datensätze – insbesondere bleibt der Eintrag vom 31.07.2026 mit den Wasseruhr-Werten im Freitext (`Notiz`) unverändert; eine etwaige nachträgliche Migration dieses einen Datensatzes ist eine gesonderte, spätere Entscheidung mit Stefan. Keine Änderungen an der übrigen Formular-UX (Sektionsgliederung, Sprungleiste, Fortschrittsanzeige, Dirty-State/Datum-Uhrzeit-Logik aus vorherigen Runden) über das für die Wasseruhr-Ergänzung notwendige Minimum hinaus.
 
-## 9. PWA-Cache
+## 9. Runde 2 (24.08.2026, nach erstem Praxistest durch Stefan)
 
-Service-Worker-Cache-Suffix hochgezählt: `postfreeze-20260822a` → `postfreeze-20260824a`. Die Produktversion `1.0.0-beta.5` bleibt unverändert.
+Stefan hat die Wasserfüllung/Wasseruhr-Erweiterung erfolgreich getestet ("Wasserfüllung getestet. klappt") und beim CSV-Export zwei weitere Beobachtungen gemeldet.
 
-## 10. Freeze-Status nach Abschluss
+### 9.1 `Außentemperatur` und `Dach_Offen_h` weiterhin als Ganzzahl in Excel
 
-Die hier dokumentierten notwendigen Änderungen sind implementiert und durch isolierte Logik-Tests geprüft. **Vor dem endgültigen Abschluss stehen noch aus:** Ausführung der Supabase-Migration, Deployment, realer Browser-/Gerätetest (siehe Abschnitt 7).
+**Kein Fehler in der Werte-Umrechnung** (der Punkt-zu-Komma-Fix aus Abschnitt 2 greift korrekt), sondern eine Lücke in der Robustheit dieses Fixes: Excel/Power Query leitet den Spaltentyp beim Import aus den **tatsächlich vorkommenden Werten** ab. Enthält eine Spalte in einem konkreten Export ausschließlich ganzzahlige Werte – bei `Außentemperatur` und `Dach_Offen_h` war das in Stefans bisherigen Daten zufällig durchgehend der Fall –, erkennt Power Query „Ganze Zahl“ statt „Dezimalzahl“, unabhängig davon, dass die Spalte grundsätzlich Nachkommastellen tragen kann (`Dach_Offen_h` wird wie `Chlorschwimmer_h`/`Pumpe_h` automatisch aus verstrichener Zeit berechnet, siehe 9.2, und kann daher jederzeit einen Dezimalwert annehmen, sobald ein Intervall nicht exakt auf eine volle Stunde fällt).
+
+**Fix:** `formatCsvField()` (siehe Abschnitt 2) hängt jetzt für alle `NUMERIC_CSV_HEADERS`-Spalten zusätzlich `,0` an, wenn der Wert zufällig ganzzahlig ist (z. B. `19` → `19,0`). Der Spaltentyp wird dadurch unabhängig von den in einem bestimmten Export konkret vorkommenden Werten stabil als „Dezimalzahl“ erkannt – ohne echte Nachkommastellen zu verändern oder abzuschneiden (ein Wert wie `109,387` bleibt exakt `109,387`). Das behebt nicht nur die zwei gemeldeten Spalten, sondern vorbeugend auch alle anderen `NUMERIC_CSV_HEADERS`-Spalten, die aktuell noch zufällig nur Ganzzahlwerte enthalten (z. B. `CYA`, `TA`) und sonst beim nächsten Export mit demselben Symptom aufgefallen wären.
+
+### 9.2 `Chlorschwimmer_h`/`Pumpe_h` mit „krummen“ Werten wie `9,38` oder `22,9` – kein Fehler
+
+Stefans Vermutung war richtig: *„sind das die automatisch errechneten Differenzen wenn keine konkrete Zahl eingegeben wurde?“* – **ja, genau das.** `Dach_Offen_h`, `Badebetrieb_h`, `Chlorschwimmer_h` und `Pumpe_h` haben im Formular jeweils eine Auswahl „0 h“ / „durchgehend“ / „teilweise“ (`_state`-Feld). Bei **„durchgehend“** berechnet `intervalValueFromState()` automatisch die tatsächlich verstrichene Zeit seit der vorherigen Messung (`currentInterval.hours`, auf zwei Nachkommastellen gerundet) – **nicht** eine von Stefan eingegebene Zahl. Das ist eine bereits bestehende, von dieser Änderung unabhängige Funktion der App.
+
+Stichprobenartig anhand der hochgeladenen `Pool_Masterdaten_20260824.csv` nachgerechnet: Zeile mit `Pumpe_h=9.38` am 21.08. 17:59 – die vorherige Messung war am 21.08. 08:36, also 9 h 23 min = 9,383… h ≈ **9,38 h**. Zeile mit `Chlorschwimmer_h=22.9` am 23.06. 10:19 – vorherige Messung am 22.06. 11:26 mit `Chlorschwimmer_h=0` (Schwimmer gerade erst eingesetzt), also 22 h 53 min = 22,88… h ≈ **22,9 h**. Beide Werte sind damit rechnerisch korrekt und plausibel – sie geben nicht „wie lange die Messung gedauert hat“ wieder (das war Stefans Annahme), sondern „wie lange Schwimmer/Pumpe/Dach/Badebetrieb seit der letzten Messung ununterbrochen im aktuellen Zustand war“, wenn „durchgehend“ gewählt wurde. **Keine Code-Änderung vorgenommen**, da kein Fehler – nur diese Klarstellung dokumentiert.
+
+## 10. PWA-Cache
+
+Service-Worker-Cache-Suffix zweimal hochgezählt: `postfreeze-20260822a` → `postfreeze-20260824a` (Runde 1) → `postfreeze-20260824b` (Runde 2, wegen der `formatCsvField()`-Anpassung aus Abschnitt 9.1). Die Produktversion `1.0.0-beta.5` bleibt unverändert.
+
+## 11. Freeze-Status nach Abschluss
+
+Die hier dokumentierten notwendigen Änderungen sind implementiert und durch isolierte Logik-Tests geprüft (Runde 2 ergänzt Regressionstests für den Ganzzahl-Typ-Fix, siehe Abschnitt 7). **Vor dem endgültigen Abschluss stehen noch aus:** Ausführung der Supabase-Migration (falls noch nicht geschehen), Deployment der Runde-2-Änderungen, realer Browser-/Gerätetest inkl. Prüfung des CSV-Exports in Excel/Power Query ohne manuelle Typkorrektur.
 
 **FreePoolLog4U Mini 1.0.0-beta.5 kehrt nach Abschluss dieser noch offenen Schritte wieder in den Release-/Feature-Freeze zurück.**
 

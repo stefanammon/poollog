@@ -1750,14 +1750,19 @@ function csvEscape(value){
   return /[;"\r\n]/.test(s) ? `"${s.replaceAll('"','""')}"` : s;
 }
 // Formatiert einen Feldwert f\u00fcr den Semikolon-getrennten CSV-Export: f\u00fcr als numerisch bekannte
-// Spalten (NUMERIC_CSV_HEADERS) wird ein vorhandener Punkt-Dezimaltrenner auf Komma umgestellt, damit
-// deutsches Excel/Power Query die Spalte beim Import direkt als Zahl mit korrekten Nachkommastellen
-// erkennt, ohne dass Feldtypen manuell nachbearbeitet werden m\u00fcssen. Nicht-numerische bzw. leere Werte
-// bleiben unver\u00e4ndert.
+// Spalten (NUMERIC_CSV_HEADERS) wird ein vorhandener Punkt-Dezimaltrenner auf Komma umgestellt und -
+// falls der Wert zuf\u00e4llig ganzzahlig ist - ein ",0" erg\u00e4nzt. Grund: Excel/Power Query leitet den
+// Spaltentyp beim Import aus den TATS\u00c4CHLICH vorkommenden Werten ab. Enth\u00e4lt eine Spalte in einem
+// bestimmten Export ausschlie\u00dflich ganzzahlige Werte (z. B. Au\u00dfentemperatur oder Dach_Offen_h, wenn
+// gerade kein Nachkommawert aufgetreten ist), erkennt Power Query "Ganze Zahl" statt "Dezimalzahl" -
+// unabh\u00e4ngig davon, dass die Spalte grunds\u00e4tzlich Nachkommastellen tragen kann. Das erzwungene ",0"
+// macht den Spaltentyp unabh\u00e4ngig von den konkret vorkommenden Werten stabil "Dezimalzahl", ohne echte
+// Nachkommastellen zu ver\u00e4ndern oder abzuschneiden. Nicht-numerische bzw. leere Werte bleiben
+// unver\u00e4ndert.
 function formatCsvField(header,value){
   if(NUMERIC_CSV_HEADERS.has(header)){
     const s=String(value??"");
-    if(s!=="" && Number.isFinite(Number(s))) return s.replace(".",",");
+    if(s!=="" && Number.isFinite(Number(s))) return s.includes(".") ? s.replace(".",",") : s+",0";
   }
   return value;
 }
